@@ -3,10 +3,10 @@ package model
 import "time"
 
 type Team struct {
-	ID        uint64    `json:"id" db:"id"`
+	ID        string    `json:"id" db:"id"`
 	Name      string    `json:"name" db:"name"`
+	CreatedBy string    `json:"created_by" db:"created_by"`
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 }
 
 type CreateTeamRequest struct {
