@@ -11,27 +11,29 @@ const (
 )
 
 type Task struct {
-	ID          uint64     `json:"id" db:"id"`
+	ID          string     `json:"id" db:"id"`
+	TeamID      string     `json:"team_id" db:"team_id"`
 	Title       string     `json:"title" db:"title"`
 	Description string     `json:"description" db:"description"`
 	Status      TaskStatus `json:"status" db:"status"`
-	TeamID      uint64     `json:"team_id" db:"team_id"`
-	AssignedTo  *uint64    `json:"assigned_to,omitempty" db:"assigned_to"`
+	CreatedBy   string     `json:"created_by" db:"created_by"`
+	AssigneeID  *string    `json:"assignee_id,omitempty" db:"assignee_id"`
 	CreatedAt   time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at" db:"updated_at"`
+	ClosedAt    *time.Time `json:"closed_at,omitempty" db:"closed_at"`
+	Version     int        `json:"version" db:"version"`
 }
 
 type CreateTaskRequest struct {
-	Title       string     `json:"title"`
-	Description string     `json:"description"`
-	TeamID      uint64     `json:"team_id"`
-	AssignedTo  *uint64    `json:"assigned_to,omitempty"`
-	Status      TaskStatus `json:"status,omitempty"`
+	TeamID      string  `json:"team_id"`
+	Title       string  `json:"title"`
+	Description string  `json:"description"`
+	AssigneeID  *string `json:"assignee_id,omitempty"`
 }
 
 type UpdateTaskRequest struct {
 	Title       *string     `json:"title,omitempty"`
 	Description *string     `json:"description,omitempty"`
 	Status      *TaskStatus `json:"status,omitempty"`
-	AssignedTo  *uint64     `json:"assigned_to,omitempty"`
+	AssigneeID  *string     `json:"assignee_id,omitempty"`
 }
