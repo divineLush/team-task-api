@@ -49,7 +49,7 @@ func main() {
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Mount("/tasks", handler.NewTaskHandler().Routes())
 		r.Mount("/teams", handler.NewTeamHandler().Routes())
-		r.Mount("/auth", handler.NewAuthHandler().Routes())
+		r.Mount("/", handler.NewAuthHandler().Routes())
 	})
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
