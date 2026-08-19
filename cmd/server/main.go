@@ -12,6 +12,8 @@ import (
 	"github.com/team-task-api/internal/config"
 	"github.com/team-task-api/internal/handler"
 	"github.com/team-task-api/internal/middleware"
+	"github.com/team-task-api/internal/repository"
+	"github.com/team-task-api/internal/service"
 	"github.com/team-task-api/pkg/database"
 )
 
@@ -29,6 +31,10 @@ func main() {
 		log.Fatalf("redis: %v", err)
 	}
 	_ = rdb
+
+	userRepo := repository.NewUserRepository(db)
+	authService := service.NewAuthService(userRepo, cfg.Auth)
+	authHandler := handler.NewAuthHandler(authService)
 
 	r := chi.NewRouter()
 
@@ -49,7 +55,7 @@ func main() {
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Mount("/tasks", handler.NewTaskHandler().Routes())
 		r.Mount("/teams", handler.NewTeamHandler().Routes())
-		r.Mount("/", handler.NewAuthHandler().Routes())
+		r.Mount("/", authHandler.Routes())
 	})
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {

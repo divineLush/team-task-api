@@ -3,6 +3,7 @@ package config
 import (
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 )
@@ -11,6 +12,7 @@ type Config struct {
 	Server   ServerConfig
 	DB       DBConfig
 	RedisCfg RedisConfig
+	Auth     AuthConfig
 }
 
 type ServerConfig struct {
@@ -31,10 +33,17 @@ type RedisConfig struct {
 	DB       int
 }
 
+type AuthConfig struct {
+	JWTSecret      string
+	JWTExpiryHours int
+}
+
 func Load() *Config {
 	if err := godotenv.Load(); err != nil {
 		log.Println("no .env file found")
 	}
+
+	expiryHours, _ := strconv.Atoi(getEnv("JWT_EXPIRY_HOURS", "72"))
 
 	return &Config{
 		Server: ServerConfig{
@@ -51,6 +60,10 @@ func Load() *Config {
 			Addr:     getEnv("REDIS_ADDR", "localhost:6379"),
 			Password: getEnv("REDIS_PASSWORD", ""),
 			DB:       0,
+		},
+		Auth: AuthConfig{
+			JWTSecret:      getEnv("JWT_SECRET", "change-me-in-production"),
+			JWTExpiryHours: expiryHours,
 		},
 	}
 }
