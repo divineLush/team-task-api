@@ -2,18 +2,18 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/team-task-api/internal/model"
+	"github.com/team-task-api/pkg/database"
 )
 
 type TaskHistoryRepository struct {
-	db *sql.DB
+	db database.Querier
 }
 
-func NewTaskHistoryRepository(db *sql.DB) *TaskHistoryRepository {
+func NewTaskHistoryRepository(db database.Querier) *TaskHistoryRepository {
 	return &TaskHistoryRepository{db: db}
 }
 

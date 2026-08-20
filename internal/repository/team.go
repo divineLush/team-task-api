@@ -7,13 +7,14 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/team-task-api/internal/model"
+	"github.com/team-task-api/pkg/database"
 )
 
 type TeamRepository struct {
-	db *sql.DB
+	db database.Querier
 }
 
-func NewTeamRepository(db *sql.DB) *TeamRepository {
+func NewTeamRepository(db database.Querier) *TeamRepository {
 	return &TeamRepository{db: db}
 }
 

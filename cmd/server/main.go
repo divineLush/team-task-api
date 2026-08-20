@@ -36,8 +36,8 @@ func main() {
 	teamRepo := repository.NewTeamRepository(db)
 	teamMemberRepo := repository.NewTeamMemberRepository(db)
 
-	authService := service.NewAuthService(userRepo, cfg.Auth)
-	teamService := service.NewTeamService(teamRepo, teamMemberRepo)
+	authService := service.NewAuthService(db, userRepo, cfg.Auth)
+	teamService := service.NewTeamService(db, teamRepo, teamMemberRepo)
 
 	authHandler := handler.NewAuthHandler(authService)
 	teamHandler := handler.NewTeamHandler(teamService)

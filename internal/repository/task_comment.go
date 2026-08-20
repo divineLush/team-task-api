@@ -2,18 +2,18 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/team-task-api/internal/model"
+	"github.com/team-task-api/pkg/database"
 )
 
 type TaskCommentRepository struct {
-	db *sql.DB
+	db database.Querier
 }
 
-func NewTaskCommentRepository(db *sql.DB) *TaskCommentRepository {
+func NewTaskCommentRepository(db database.Querier) *TaskCommentRepository {
 	return &TaskCommentRepository{db: db}
 }
 

@@ -6,13 +6,14 @@ import (
 	"fmt"
 
 	"github.com/team-task-api/internal/model"
+	"github.com/team-task-api/pkg/database"
 )
 
 type TeamMemberRepository struct {
-	db *sql.DB
+	db database.Querier
 }
 
-func NewTeamMemberRepository(db *sql.DB) *TeamMemberRepository {
+func NewTeamMemberRepository(db database.Querier) *TeamMemberRepository {
 	return &TeamMemberRepository{db: db}
 }
 

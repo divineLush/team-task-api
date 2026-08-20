@@ -2,10 +2,13 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/go-sql-driver/mysql"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 
@@ -20,16 +23,25 @@ var (
 )
 
 type AuthService struct {
+	db      *sql.DB
 	userRepo *repository.UserRepository
 	cfg      config.AuthConfig
 }
 
-func NewAuthService(userRepo *repository.UserRepository, cfg config.AuthConfig) *AuthService {
-	return &AuthService{userRepo: userRepo, cfg: cfg}
+func NewAuthService(db *sql.DB, userRepo *repository.UserRepository, cfg config.AuthConfig) *AuthService {
+	return &AuthService{db: db, userRepo: userRepo, cfg: cfg}
 }
 
 func (s *AuthService) Register(ctx context.Context, req *model.CreateUserRequest) (*model.AuthResponse, error) {
-	existing, err := s.userRepo.GetByEmail(ctx, req.Email)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	txRepo := repository.NewUserRepository(tx)
+
+	existing, err := txRepo.GetByEmail(ctx, req.Email)
 	if err != nil {
 		return nil, fmt.Errorf("check email: %w", err)
 	}
@@ -48,8 +60,16 @@ func (s *AuthService) Register(ctx context.Context, req *model.CreateUserRequest
 		Name:         req.Name,
 	}
 
-	if err := s.userRepo.Create(ctx, user); err != nil {
+	if err := txRepo.Create(ctx, user); err != nil {
+		var mysqlErr *mysql.MySQLError
+		if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 && strings.Contains(mysqlErr.Message, "uq_users_email") {
+			return nil, ErrEmailTaken
+		}
 		return nil, fmt.Errorf("create user: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit tx: %w", err)
 	}
 
 	token, err := s.generateToken(user)
