@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/team-task-api/internal/cache"
 	"github.com/team-task-api/internal/model"
 	"github.com/team-task-api/internal/repository"
 )
@@ -13,19 +14,22 @@ import (
 var (
 	ErrNotTeamMember     = errors.New("user is not a member of this team")
 	ErrTaskNotFound      = errors.New("task not found")
+	ErrCommentNotFound   = errors.New("comment not found")
 	ErrAssigneeNotMember = errors.New("assignee is not a member of this team")
 	ErrNotAuthorized     = errors.New("only task creator or assignee can edit the task")
 	ErrCannotReassign    = errors.New("assignee cannot reassign the task")
 )
 
 type TaskService struct {
-	db             *sql.DB
-	taskRepo       *repository.TaskRepository
-	teamMemberRepo *repository.TeamMemberRepository
+	db              *sql.DB
+	taskRepo        *repository.TaskRepository
+	teamMemberRepo  *repository.TeamMemberRepository
+	historyService  *TaskHistoryService
+	taskCache       *cache.TaskCache
 }
 
-func NewTaskService(db *sql.DB, taskRepo *repository.TaskRepository, teamMemberRepo *repository.TeamMemberRepository) *TaskService {
-	return &TaskService{db: db, taskRepo: taskRepo, teamMemberRepo: teamMemberRepo}
+func NewTaskService(db *sql.DB, taskRepo *repository.TaskRepository, teamMemberRepo *repository.TeamMemberRepository, historyService *TaskHistoryService, taskCache *cache.TaskCache) *TaskService {
+	return &TaskService{db: db, taskRepo: taskRepo, teamMemberRepo: teamMemberRepo, historyService: historyService, taskCache: taskCache}
 }
 
 func (s *TaskService) Create(ctx context.Context, userID string, req *model.CreateTaskRequest) (*model.Task, error) {
@@ -63,6 +67,12 @@ func (s *TaskService) Create(ctx context.Context, userID string, req *model.Crea
 		return nil, fmt.Errorf("commit tx: %w", err)
 	}
 
+	if s.taskCache != nil {
+		if err := s.taskCache.InvalidateTeam(ctx, req.TeamID); err != nil {
+			fmt.Printf("cache invalidate error: %v\n", err)
+		}
+	}
+
 	return task, nil
 }
 
@@ -74,7 +84,6 @@ func (s *TaskService) List(ctx context.Context, userID string, filter repository
 	defer tx.Rollback()
 
 	txMemberRepo := repository.NewTeamMemberRepository(tx)
-	txTaskRepo := repository.NewTaskRepository(tx)
 
 	teams, err := txMemberRepo.ListByUser(ctx, userID)
 	if err != nil {
@@ -110,13 +119,42 @@ func (s *TaskService) List(ctx context.Context, userID string, filter repository
 		filter.Limit = 100
 	}
 
-	tasks, err := txTaskRepo.List(ctx, filter)
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit tx: %w", err)
+	}
+
+	cacheKey := cache.ListKey{
+		TeamIDs:   filter.TeamIDs,
+		Limit:     filter.Limit,
+		Offset:    filter.Offset,
+	}
+	if filter.Status != nil {
+		cacheKey.Status = *filter.Status
+	}
+	if filter.AssigneeID != nil {
+		cacheKey.AssigneeID = *filter.AssigneeID
+	}
+
+	if s.taskCache != nil {
+		cached, err := s.taskCache.Get(ctx, cacheKey)
+		if err != nil {
+			// cache errors are non-fatal, log and continue
+			fmt.Printf("cache get error: %v\n", err)
+		}
+		if cached != nil {
+			return cached, nil
+		}
+	}
+
+	tasks, err := s.taskRepo.List(ctx, filter)
 	if err != nil {
 		return nil, fmt.Errorf("list tasks: %w", err)
 	}
 
-	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("commit tx: %w", err)
+	if s.taskCache != nil && len(tasks) > 0 {
+		if err := s.taskCache.Set(ctx, cacheKey, tasks); err != nil {
+			fmt.Printf("cache set error: %v\n", err)
+		}
 	}
 
 	return tasks, nil
@@ -156,6 +194,8 @@ func (s *TaskService) Update(ctx context.Context, userID, taskID string, req *mo
 		return nil, ErrNotAuthorized
 	}
 
+	oldTask := *task
+
 	if req.Title != nil {
 		task.Title = *req.Title
 	}
@@ -180,12 +220,35 @@ func (s *TaskService) Update(ctx context.Context, userID, taskID string, req *mo
 		task.AssigneeID = req.AssigneeID
 	}
 
+	changesJSON, err := BuildChanges(&oldTask, task)
+	if err != nil {
+		return nil, fmt.Errorf("build changes: %w", err)
+	}
+
 	if err := txTaskRepo.Update(ctx, task); err != nil {
 		return nil, fmt.Errorf("update task: %w", err)
 	}
 
+	if changesJSON != "" {
+		txHistoryRepo := repository.NewTaskHistoryRepository(tx)
+		history := &model.TaskHistory{
+			TaskID:    taskID,
+			ChangedBy: userID,
+			Changes:   changesJSON,
+		}
+		if err := txHistoryRepo.Create(ctx, history); err != nil {
+			return nil, fmt.Errorf("create history: %w", err)
+		}
+	}
+
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("commit tx: %w", err)
+	}
+
+	if s.taskCache != nil {
+		if err := s.taskCache.InvalidateTeam(ctx, task.TeamID); err != nil {
+			fmt.Printf("cache invalidate error: %v\n", err)
+		}
 	}
 
 	return task, nil
@@ -256,6 +319,12 @@ func (s *TaskService) Delete(ctx context.Context, userID, taskID string) error {
 
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit tx: %w", err)
+	}
+
+	if s.taskCache != nil {
+		if err := s.taskCache.InvalidateTeam(ctx, task.TeamID); err != nil {
+			fmt.Printf("cache invalidate error: %v\n", err)
+		}
 	}
 
 	return nil

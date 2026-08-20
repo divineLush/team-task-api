@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/cors"
 	httpSwagger "github.com/swaggo/http-swagger"
 
+	"github.com/team-task-api/internal/cache"
 	"github.com/team-task-api/internal/config"
 	"github.com/team-task-api/internal/handler"
 	"github.com/team-task-api/internal/middleware"
@@ -43,7 +44,8 @@ func main() {
 	if err != nil {
 		log.Error("redis connection failed", "error", err)
 	}
-	_ = rdb
+
+	taskCache := cache.NewTaskCache(rdb)
 
 	userRepo := repository.NewUserRepository(db)
 	teamRepo := repository.NewTeamRepository(db)
@@ -54,9 +56,9 @@ func main() {
 
 	authService := service.NewAuthService(db, userRepo, cfg.Auth)
 	teamService := service.NewTeamService(db, teamRepo, teamMemberRepo)
-	taskService := service.NewTaskService(db, taskRepo, teamMemberRepo)
-	taskCommentService := service.NewTaskCommentService(db, taskCommentRepo, taskRepo, teamMemberRepo)
 	taskHistoryService := service.NewTaskHistoryService(db, taskHistoryRepo, taskRepo, teamMemberRepo)
+	taskService := service.NewTaskService(db, taskRepo, teamMemberRepo, taskHistoryService, taskCache)
+	taskCommentService := service.NewTaskCommentService(db, taskCommentRepo, taskRepo, teamMemberRepo)
 
 	authHandler := handler.NewAuthHandler(authService)
 	teamHandler := handler.NewTeamHandler(teamService)

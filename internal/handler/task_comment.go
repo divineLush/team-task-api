@@ -138,7 +138,7 @@ func (h *TaskCommentHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case errors.Is(err, service.ErrNotTeamMember):
 			writeJSON(w, http.StatusForbidden, map[string]string{"error": err.Error()})
-		case errors.Is(err, service.ErrTaskNotFound):
+		case errors.Is(err, service.ErrTaskNotFound), errors.Is(err, service.ErrCommentNotFound):
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
 		default:
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 
 	"github.com/team-task-api/internal/model"
@@ -18,6 +19,10 @@ type TaskHistoryService struct {
 
 func NewTaskHistoryService(db *sql.DB, historyRepo *repository.TaskHistoryRepository, taskRepo *repository.TaskRepository, teamMemberRepo *repository.TeamMemberRepository) *TaskHistoryService {
 	return &TaskHistoryService{db: db, historyRepo: historyRepo, taskRepo: taskRepo, teamMemberRepo: teamMemberRepo}
+}
+
+func (s *TaskHistoryService) Create(ctx context.Context, history *model.TaskHistory) error {
+	return s.historyRepo.Create(ctx, history)
 }
 
 func (s *TaskHistoryService) List(ctx context.Context, userID, taskID string) ([]model.TaskHistory, error) {
@@ -57,4 +62,46 @@ func (s *TaskHistoryService) List(ctx context.Context, userID, taskID string) ([
 	}
 
 	return history, nil
+}
+
+type FieldChange struct {
+	Old any `json:"old"`
+	New any `json:"new"`
+}
+
+func BuildChanges(old, new *model.Task) (string, error) {
+	changes := make(map[string]FieldChange)
+
+	if old.Title != new.Title {
+		changes["title"] = FieldChange{Old: old.Title, New: new.Title}
+	}
+	if old.Description != new.Description {
+		changes["description"] = FieldChange{Old: old.Description, New: new.Description}
+	}
+	if old.Status != new.Status {
+		changes["status"] = FieldChange{Old: old.Status, New: new.Status}
+	}
+	if !ptrEqual(old.AssigneeID, new.AssigneeID) {
+		changes["assignee_id"] = FieldChange{Old: old.AssigneeID, New: new.AssigneeID}
+	}
+
+	if len(changes) == 0 {
+		return "", nil
+	}
+
+	b, err := json.Marshal(changes)
+	if err != nil {
+		return "", fmt.Errorf("marshal changes: %w", err)
+	}
+	return string(b), nil
+}
+
+func ptrEqual(a, b *string) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return *a == *b
 }

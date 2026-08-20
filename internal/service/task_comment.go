@@ -130,6 +130,14 @@ func (s *TaskCommentService) Delete(ctx context.Context, userID, taskID, comment
 		return ErrNotTeamMember
 	}
 
+	existing, err := txCommentRepo.GetByID(ctx, taskID, commentID)
+	if err != nil {
+		return fmt.Errorf("get comment: %w", err)
+	}
+	if existing == nil {
+		return ErrCommentNotFound
+	}
+
 	if err := txCommentRepo.Delete(ctx, commentID); err != nil {
 		return fmt.Errorf("delete comment: %w", err)
 	}

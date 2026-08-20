@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -10,6 +11,8 @@ import (
 	"github.com/team-task-api/internal/model"
 	"github.com/team-task-api/pkg/database"
 )
+
+var ErrConcurrentUpdate = errors.New("concurrent update: task was modified by another user")
 
 type TaskRepository struct {
 	db database.Querier
@@ -159,7 +162,7 @@ func (r *TaskRepository) Update(ctx context.Context, task *model.Task) error {
 		return fmt.Errorf("rows affected: %w", err)
 	}
 	if rows == 0 {
-		return fmt.Errorf("task not found or version mismatch")
+		return ErrConcurrentUpdate
 	}
 	return nil
 }
