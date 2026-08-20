@@ -327,7 +327,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Update a task by ID. User must be a member of the task's team.",
+                "description": "Update a task by ID. User must be the task creator or assignee.",
                 "consumes": [
                     "application/json"
                 ],

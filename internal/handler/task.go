@@ -173,7 +173,7 @@ func (h *TaskHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 
 // Update godoc
 // @Summary      Update a task
-// @Description  Update a task by ID. User must be a member of the task's team.
+// @Description  Update a task by ID. User must be the task creator or assignee.
 // @Tags         tasks
 // @Accept       json
 // @Produce      json
@@ -204,7 +204,7 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 	task, err := h.taskService.Update(r.Context(), userID, taskID, &req)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrNotTeamMember), errors.Is(err, service.ErrAssigneeNotMember):
+		case errors.Is(err, service.ErrNotTeamMember), errors.Is(err, service.ErrAssigneeNotMember), errors.Is(err, service.ErrNotAuthorized):
 			writeJSON(w, http.StatusForbidden, map[string]string{"error": err.Error()})
 		case errors.Is(err, service.ErrTaskNotFound):
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})

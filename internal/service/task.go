@@ -11,9 +11,10 @@ import (
 )
 
 var (
-	ErrNotTeamMember    = errors.New("user is not a member of this team")
-	ErrTaskNotFound     = errors.New("task not found")
+	ErrNotTeamMember     = errors.New("user is not a member of this team")
+	ErrTaskNotFound      = errors.New("task not found")
 	ErrAssigneeNotMember = errors.New("assignee is not a member of this team")
+	ErrNotAuthorized     = errors.New("only task creator or assignee can edit the task")
 )
 
 type TaskService struct {
@@ -144,6 +145,10 @@ func (s *TaskService) Update(ctx context.Context, userID, taskID string, req *mo
 	}
 	if member == nil {
 		return nil, ErrNotTeamMember
+	}
+
+	if task.CreatedBy != userID && (task.AssigneeID == nil || *task.AssigneeID != userID) {
+		return nil, ErrNotAuthorized
 	}
 
 	if req.Title != nil {
