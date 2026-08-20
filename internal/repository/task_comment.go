@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -25,6 +26,22 @@ func (r *TaskCommentRepository) Create(ctx context.Context, c *model.TaskComment
 		return fmt.Errorf("insert task comment: %w", err)
 	}
 	return nil
+}
+
+func (r *TaskCommentRepository) GetByID(ctx context.Context, taskID, commentID string) (*model.TaskComment, error) {
+	query := `SELECT id, task_id, user_id, content, created_at FROM task_comments
+		WHERE id = ? AND task_id = ?`
+	c := &model.TaskComment{}
+	err := r.db.QueryRowContext(ctx, query, commentID, taskID).Scan(
+		&c.ID, &c.TaskID, &c.UserID, &c.Content, &c.CreatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get comment by id: %w", err)
+	}
+	return c, nil
 }
 
 func (r *TaskCommentRepository) ListByTask(ctx context.Context, taskID string) ([]model.TaskComment, error) {

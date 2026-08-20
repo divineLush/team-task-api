@@ -104,9 +104,14 @@ type TaskFilter struct {
 }
 
 func (r *TaskRepository) List(ctx context.Context, filter TaskFilter) ([]model.Task, error) {
+	placeholders := make([]string, len(filter.TeamIDs))
+	args := make([]any, len(filter.TeamIDs))
+	for i, id := range filter.TeamIDs {
+		placeholders[i] = "?"
+		args[i] = id
+	}
 	query := `SELECT id, team_id, title, description, status, created_by, assignee_id,
-		created_at, updated_at, closed_at, version FROM tasks WHERE team_id IN (?)`
-	args := []any{strings.Join(filter.TeamIDs, ",")}
+		created_at, updated_at, closed_at, version FROM tasks WHERE team_id IN (` + strings.Join(placeholders, ",") + `)`
 
 	if filter.Status != nil {
 		query += ` AND status = ?`
