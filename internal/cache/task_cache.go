@@ -37,7 +37,7 @@ type ListKey struct {
 	Offset    int
 }
 
-func (c *TaskCache) buildKey(k ListKey) string {
+func (k ListKey) String() string {
 	sorted := make([]string, len(k.TeamIDs))
 	copy(sorted, k.TeamIDs)
 	sort.Strings(sorted)
@@ -49,7 +49,11 @@ func (c *TaskCache) buildKey(k ListKey) string {
 		"limit=" + strconv.Itoa(k.Limit),
 		"offset=" + strconv.Itoa(k.Offset),
 	}
-	raw := strings.Join(parts, "|")
+	return strings.Join(parts, "|")
+}
+
+func (c *TaskCache) buildKey(k ListKey) string {
+	raw := k.String()
 	hash := sha256.Sum256([]byte(raw))
 	return taskListPrefix + fmt.Sprintf("%x", hash)
 }

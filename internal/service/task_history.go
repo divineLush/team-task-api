@@ -21,10 +21,6 @@ func NewTaskHistoryService(db *sql.DB, historyRepo *repository.TaskHistoryReposi
 	return &TaskHistoryService{db: db, historyRepo: historyRepo, taskRepo: taskRepo, teamMemberRepo: teamMemberRepo}
 }
 
-func (s *TaskHistoryService) Create(ctx context.Context, history *model.TaskHistory) error {
-	return s.historyRepo.Create(ctx, history)
-}
-
 func (s *TaskHistoryService) List(ctx context.Context, userID, taskID string) ([]model.TaskHistory, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {

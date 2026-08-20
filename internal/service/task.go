@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"golang.org/x/sync/singleflight"
+
 	"github.com/team-task-api/internal/cache"
 	"github.com/team-task-api/internal/model"
 	"github.com/team-task-api/internal/repository"
@@ -26,6 +28,7 @@ type TaskService struct {
 	teamMemberRepo  *repository.TeamMemberRepository
 	historyService  *TaskHistoryService
 	taskCache       *cache.TaskCache
+	listFlight      singleflight.Group
 }
 
 func NewTaskService(db *sql.DB, taskRepo *repository.TaskRepository, teamMemberRepo *repository.TeamMemberRepository, historyService *TaskHistoryService, taskCache *cache.TaskCache) *TaskService {
@@ -124,9 +127,9 @@ func (s *TaskService) List(ctx context.Context, userID string, filter repository
 	}
 
 	cacheKey := cache.ListKey{
-		TeamIDs:   filter.TeamIDs,
-		Limit:     filter.Limit,
-		Offset:    filter.Offset,
+		TeamIDs: filter.TeamIDs,
+		Limit:   filter.Limit,
+		Offset:  filter.Offset,
 	}
 	if filter.Status != nil {
 		cacheKey.Status = *filter.Status
@@ -138,7 +141,6 @@ func (s *TaskService) List(ctx context.Context, userID string, filter repository
 	if s.taskCache != nil {
 		cached, err := s.taskCache.Get(ctx, cacheKey)
 		if err != nil {
-			// cache errors are non-fatal, log and continue
 			fmt.Printf("cache get error: %v\n", err)
 		}
 		if cached != nil {
@@ -146,18 +148,26 @@ func (s *TaskService) List(ctx context.Context, userID string, filter repository
 		}
 	}
 
-	tasks, err := s.taskRepo.List(ctx, filter)
-	if err != nil {
-		return nil, fmt.Errorf("list tasks: %w", err)
-	}
-
-	if s.taskCache != nil && len(tasks) > 0 {
-		if err := s.taskCache.Set(ctx, cacheKey, tasks); err != nil {
-			fmt.Printf("cache set error: %v\n", err)
+	flightKey := "list:" + cacheKey.String()
+	val, err, _ := s.listFlight.Do(flightKey, func() (any, error) {
+		tasks, err := s.taskRepo.List(ctx, filter)
+		if err != nil {
+			return nil, fmt.Errorf("list tasks: %w", err)
 		}
+
+		if s.taskCache != nil && len(tasks) > 0 {
+			if err := s.taskCache.Set(ctx, cacheKey, tasks); err != nil {
+				fmt.Printf("cache set error: %v\n", err)
+			}
+		}
+
+		return tasks, nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
-	return tasks, nil
+	return val.([]model.Task), nil
 }
 
 func (s *TaskService) Update(ctx context.Context, userID, taskID string, req *model.UpdateTaskRequest) (*model.Task, error) {
