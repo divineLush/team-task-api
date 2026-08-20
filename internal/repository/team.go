@@ -61,6 +61,28 @@ func (r *TeamRepository) List(ctx context.Context) ([]model.Team, error) {
 	return teams, nil
 }
 
+func (r *TeamRepository) ListByUser(ctx context.Context, userID string) ([]model.Team, error) {
+	query := `SELECT t.id, t.name, t.created_by, t.created_at FROM teams t
+		INNER JOIN team_members tm ON tm.team_id = t.id
+		WHERE tm.user_id = ?
+		ORDER BY t.created_at DESC`
+	rows, err := r.db.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list teams by user: %w", err)
+	}
+	defer rows.Close()
+
+	var teams []model.Team
+	for rows.Next() {
+		var t model.Team
+		if err := rows.Scan(&t.ID, &t.Name, &t.CreatedBy, &t.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan team: %w", err)
+		}
+		teams = append(teams, t)
+	}
+	return teams, nil
+}
+
 func (r *TeamRepository) Update(ctx context.Context, team *model.Team) error {
 	query := `UPDATE teams SET name = ? WHERE id = ?`
 	_, err := r.db.ExecContext(ctx, query, team.Name, team.ID)

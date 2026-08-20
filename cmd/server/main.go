@@ -33,8 +33,14 @@ func main() {
 	_ = rdb
 
 	userRepo := repository.NewUserRepository(db)
+	teamRepo := repository.NewTeamRepository(db)
+	teamMemberRepo := repository.NewTeamMemberRepository(db)
+
 	authService := service.NewAuthService(userRepo, cfg.Auth)
+	teamService := service.NewTeamService(teamRepo, teamMemberRepo)
+
 	authHandler := handler.NewAuthHandler(authService)
+	teamHandler := handler.NewTeamHandler(teamService)
 
 	r := chi.NewRouter()
 
@@ -54,7 +60,10 @@ func main() {
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Mount("/tasks", handler.NewTaskHandler().Routes())
-		r.Mount("/teams", handler.NewTeamHandler().Routes())
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.Auth(cfg.Auth.JWTSecret))
+			r.Mount("/teams", teamHandler.Routes())
+		})
 		r.Mount("/", authHandler.Routes())
 	})
 
