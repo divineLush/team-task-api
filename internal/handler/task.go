@@ -204,7 +204,7 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 	task, err := h.taskService.Update(r.Context(), userID, taskID, &req)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrNotTeamMember), errors.Is(err, service.ErrAssigneeNotMember), errors.Is(err, service.ErrNotAuthorized):
+		case errors.Is(err, service.ErrNotTeamMember), errors.Is(err, service.ErrAssigneeNotMember), errors.Is(err, service.ErrNotAuthorized), errors.Is(err, service.ErrCannotReassign):
 			writeJSON(w, http.StatusForbidden, map[string]string{"error": err.Error()})
 		case errors.Is(err, service.ErrTaskNotFound):
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})

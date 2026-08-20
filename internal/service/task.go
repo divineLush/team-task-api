@@ -15,6 +15,7 @@ var (
 	ErrTaskNotFound      = errors.New("task not found")
 	ErrAssigneeNotMember = errors.New("assignee is not a member of this team")
 	ErrNotAuthorized     = errors.New("only task creator or assignee can edit the task")
+	ErrCannotReassign    = errors.New("assignee cannot reassign the task")
 )
 
 type TaskService struct {
@@ -160,6 +161,10 @@ func (s *TaskService) Update(ctx context.Context, userID, taskID string, req *mo
 	if req.Status != nil {
 		task.Status = *req.Status
 	}
+	if req.AssigneeID != nil && task.CreatedBy != userID {
+		return nil, ErrCannotReassign
+	}
+
 	if req.AssigneeID != nil {
 		assignee, err := txMemberRepo.Get(ctx, task.TeamID, *req.AssigneeID)
 		if err != nil {
