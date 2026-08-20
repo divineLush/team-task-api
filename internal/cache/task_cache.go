@@ -13,6 +13,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/team-task-api/internal/model"
+	"github.com/team-task-api/pkg/circuitbreaker"
 )
 
 const (
@@ -23,10 +24,14 @@ const (
 
 type TaskCache struct {
 	rdb *redis.Client
+	cb  *circuitbreaker.CircuitBreaker
 }
 
 func NewTaskCache(rdb *redis.Client) *TaskCache {
-	return &TaskCache{rdb: rdb}
+	return &TaskCache{
+		rdb: rdb,
+		cb:  circuitbreaker.New(5, 3, 30*time.Second),
+	}
 }
 
 type ListKey struct {
@@ -60,17 +65,24 @@ func (c *TaskCache) buildKey(k ListKey) string {
 
 func (c *TaskCache) Get(ctx context.Context, k ListKey) ([]model.Task, error) {
 	key := c.buildKey(k)
-	data, err := c.rdb.Get(ctx, key).Bytes()
-	if err == redis.Nil {
+
+	var tasks []model.Task
+	err := c.cb.Execute(func() error {
+		data, err := c.rdb.Get(ctx, key).Bytes()
+		if err == redis.Nil {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("redis get: %w", err)
+		}
+		return json.Unmarshal(data, &tasks)
+	})
+
+	if err == circuitbreaker.ErrOpen {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("redis get: %w", err)
-	}
-
-	var tasks []model.Task
-	if err := json.Unmarshal(data, &tasks); err != nil {
-		return nil, fmt.Errorf("unmarshal tasks: %w", err)
+		return nil, err
 	}
 	return tasks, nil
 }
@@ -82,37 +94,50 @@ func (c *TaskCache) Set(ctx context.Context, k ListKey, tasks []model.Task) erro
 		return fmt.Errorf("marshal tasks: %w", err)
 	}
 
-	if err := c.rdb.Set(ctx, key, data, ttl).Err(); err != nil {
-		return fmt.Errorf("redis set: %w", err)
-	}
+	err = c.cb.Execute(func() error {
+		if err := c.rdb.Set(ctx, key, data, ttl).Err(); err != nil {
+			return fmt.Errorf("redis set: %w", err)
+		}
 
-	pipe := c.rdb.Pipeline()
-	for _, teamID := range k.TeamIDs {
-		pipe.SAdd(ctx, teamKeysPrefix+teamID, key)
-	}
-	if _, err := pipe.Exec(ctx); err != nil {
-		return fmt.Errorf("track cache keys: %w", err)
-	}
+		pipe := c.rdb.Pipeline()
+		for _, teamID := range k.TeamIDs {
+			pipe.SAdd(ctx, teamKeysPrefix+teamID, key)
+		}
+		if _, err := pipe.Exec(ctx); err != nil {
+			return fmt.Errorf("track cache keys: %w", err)
+		}
+		return nil
+	})
 
-	return nil
+	if err == circuitbreaker.ErrOpen {
+		return nil
+	}
+	return err
 }
 
 func (c *TaskCache) InvalidateTeam(ctx context.Context, teamID string) error {
 	setKey := teamKeysPrefix + teamID
-	members, err := c.rdb.SMembers(ctx, setKey).Result()
-	if err != nil {
-		return fmt.Errorf("get team cache keys: %w", err)
-	}
 
-	if len(members) > 0 {
-		if err := c.rdb.Del(ctx, members...).Err(); err != nil {
-			return fmt.Errorf("delete cache keys: %w", err)
+	err := c.cb.Execute(func() error {
+		members, err := c.rdb.SMembers(ctx, setKey).Result()
+		if err != nil {
+			return fmt.Errorf("get team cache keys: %w", err)
 		}
-	}
 
-	if err := c.rdb.Del(ctx, setKey).Err(); err != nil {
-		return fmt.Errorf("delete team key set: %w", err)
-	}
+		if len(members) > 0 {
+			if err := c.rdb.Del(ctx, members...).Err(); err != nil {
+				return fmt.Errorf("delete cache keys: %w", err)
+			}
+		}
 
-	return nil
+		if err := c.rdb.Del(ctx, setKey).Err(); err != nil {
+			return fmt.Errorf("delete team key set: %w", err)
+		}
+		return nil
+	})
+
+	if err == circuitbreaker.ErrOpen {
+		return nil
+	}
+	return err
 }
