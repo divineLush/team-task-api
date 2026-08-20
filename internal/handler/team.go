@@ -244,6 +244,8 @@ func (h *TeamHandler) Invite(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case errors.Is(err, service.ErrNotMember), errors.Is(err, service.ErrForbidden):
 			writeJSON(w, http.StatusForbidden, map[string]string{"error": err.Error()})
+		case errors.Is(err, service.ErrInvalidRole):
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		case errors.Is(err, service.ErrAlreadyMember):
 			writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
 		default:

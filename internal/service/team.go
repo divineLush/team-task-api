@@ -12,10 +12,11 @@ import (
 )
 
 var (
-	ErrNotMember     = errors.New("user is not a member of this team")
-	ErrForbidden     = errors.New("insufficient permissions")
-	ErrAlreadyMember = errors.New("user is already a member of this team")
-	ErrTeamNotFound  = errors.New("team not found")
+	ErrNotMember       = errors.New("user is not a member of this team")
+	ErrForbidden       = errors.New("insufficient permissions")
+	ErrAlreadyMember   = errors.New("user is already a member of this team")
+	ErrTeamNotFound    = errors.New("team not found")
+	ErrInvalidRole     = errors.New("owner role cannot be assigned via invite")
 )
 
 type TeamService struct {
@@ -102,6 +103,9 @@ func (s *TeamService) Invite(ctx context.Context, callerID, teamID string, req *
 	role := req.Role
 	if role == "" {
 		role = model.RoleMember
+	}
+	if role == model.RoleOwner {
+		return ErrInvalidRole
 	}
 
 	member := &model.TeamMember{
