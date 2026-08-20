@@ -52,52 +52,6 @@ func (r *TaskRepository) GetByID(ctx context.Context, id string) (*model.Task, e
 	return t, nil
 }
 
-func (r *TaskRepository) ListByTeam(ctx context.Context, teamID string) ([]model.Task, error) {
-	query := `SELECT id, team_id, title, description, status, created_by, assignee_id,
-		created_at, updated_at, closed_at, version FROM tasks WHERE team_id = ? ORDER BY created_at DESC`
-	rows, err := r.db.QueryContext(ctx, query, teamID)
-	if err != nil {
-		return nil, fmt.Errorf("list tasks by team: %w", err)
-	}
-	defer rows.Close()
-
-	var tasks []model.Task
-	for rows.Next() {
-		var t model.Task
-		if err := rows.Scan(
-			&t.ID, &t.TeamID, &t.Title, &t.Description, &t.Status, &t.CreatedBy, &t.AssigneeID,
-			&t.CreatedAt, &t.UpdatedAt, &t.ClosedAt, &t.Version,
-		); err != nil {
-			return nil, fmt.Errorf("scan task: %w", err)
-		}
-		tasks = append(tasks, t)
-	}
-	return tasks, nil
-}
-
-func (r *TaskRepository) ListByAssignee(ctx context.Context, assigneeID string) ([]model.Task, error) {
-	query := `SELECT id, team_id, title, description, status, created_by, assignee_id,
-		created_at, updated_at, closed_at, version FROM tasks WHERE assignee_id = ? ORDER BY created_at DESC`
-	rows, err := r.db.QueryContext(ctx, query, assigneeID)
-	if err != nil {
-		return nil, fmt.Errorf("list tasks by assignee: %w", err)
-	}
-	defer rows.Close()
-
-	var tasks []model.Task
-	for rows.Next() {
-		var t model.Task
-		if err := rows.Scan(
-			&t.ID, &t.TeamID, &t.Title, &t.Description, &t.Status, &t.CreatedBy, &t.AssigneeID,
-			&t.CreatedAt, &t.UpdatedAt, &t.ClosedAt, &t.Version,
-		); err != nil {
-			return nil, fmt.Errorf("scan task: %w", err)
-		}
-		tasks = append(tasks, t)
-	}
-	return tasks, nil
-}
-
 type TaskFilter struct {
 	TeamIDs   []string
 	Status    *string

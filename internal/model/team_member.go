@@ -14,15 +14,6 @@ type TeamMember struct {
 	Role   TeamRole `json:"role" db:"role"`
 }
 
-type AddTeamMemberRequest struct {
-	UserID string   `json:"user_id"`
-	Role   TeamRole `json:"role"`
-}
-
-type UpdateTeamMemberRequest struct {
-	Role *TeamRole `json:"role,omitempty"`
-}
-
 type InviteRequest struct {
 	UserID string   `json:"user_id"`
 	Role   TeamRole `json:"role,omitempty"`
