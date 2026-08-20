@@ -48,12 +48,15 @@ func main() {
 	userRepo := repository.NewUserRepository(db)
 	teamRepo := repository.NewTeamRepository(db)
 	teamMemberRepo := repository.NewTeamMemberRepository(db)
+	taskRepo := repository.NewTaskRepository(db)
 
 	authService := service.NewAuthService(db, userRepo, cfg.Auth)
 	teamService := service.NewTeamService(db, teamRepo, teamMemberRepo)
+	taskService := service.NewTaskService(db, taskRepo, teamMemberRepo)
 
 	authHandler := handler.NewAuthHandler(authService)
 	teamHandler := handler.NewTeamHandler(teamService)
+	taskHandler := handler.NewTaskHandler(taskService)
 
 	r := chi.NewRouter()
 
@@ -73,9 +76,9 @@ func main() {
 	}))
 
 	r.Route("/api/v1", func(r chi.Router) {
-		r.Mount("/tasks", handler.NewTaskHandler().Routes())
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Auth(cfg.Auth.JWTSecret))
+			r.Mount("/tasks", taskHandler.Routes())
 			r.Mount("/teams", teamHandler.Routes())
 		})
 		r.Mount("/", authHandler.Routes())

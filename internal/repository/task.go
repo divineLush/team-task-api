@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/team-task-api/internal/model"
@@ -77,6 +78,51 @@ func (r *TaskRepository) ListByAssignee(ctx context.Context, assigneeID string) 
 	rows, err := r.db.QueryContext(ctx, query, assigneeID)
 	if err != nil {
 		return nil, fmt.Errorf("list tasks by assignee: %w", err)
+	}
+	defer rows.Close()
+
+	var tasks []model.Task
+	for rows.Next() {
+		var t model.Task
+		if err := rows.Scan(
+			&t.ID, &t.TeamID, &t.Title, &t.Description, &t.Status, &t.CreatedBy, &t.AssigneeID,
+			&t.CreatedAt, &t.UpdatedAt, &t.ClosedAt, &t.Version,
+		); err != nil {
+			return nil, fmt.Errorf("scan task: %w", err)
+		}
+		tasks = append(tasks, t)
+	}
+	return tasks, nil
+}
+
+type TaskFilter struct {
+	TeamIDs   []string
+	Status    *string
+	AssigneeID *string
+	Limit     int
+	Offset    int
+}
+
+func (r *TaskRepository) List(ctx context.Context, filter TaskFilter) ([]model.Task, error) {
+	query := `SELECT id, team_id, title, description, status, created_by, assignee_id,
+		created_at, updated_at, closed_at, version FROM tasks WHERE team_id IN (?)`
+	args := []any{strings.Join(filter.TeamIDs, ",")}
+
+	if filter.Status != nil {
+		query += ` AND status = ?`
+		args = append(args, *filter.Status)
+	}
+	if filter.AssigneeID != nil {
+		query += ` AND assignee_id = ?`
+		args = append(args, *filter.AssigneeID)
+	}
+
+	query += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`
+	args = append(args, filter.Limit, filter.Offset)
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list tasks: %w", err)
 	}
 	defer rows.Close()
 

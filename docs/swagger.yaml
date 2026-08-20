@@ -193,7 +193,29 @@ paths:
       - auth
   /api/v1/tasks:
     get:
-      description: Get all tasks for a team
+      description: Get tasks with optional filters. Only returns tasks from teams
+        the user belongs to.
+      parameters:
+      - description: Filter by team ID
+        in: query
+        name: team_id
+        type: string
+      - description: Filter by status (pending, in_progress, done)
+        in: query
+        name: status
+        type: string
+      - description: Filter by assignee user ID
+        in: query
+        name: assignee_id
+        type: string
+      - description: Limit (default 50, max 100)
+        in: query
+        name: limit
+        type: integer
+      - description: Offset (default 0)
+        in: query
+        name: offset
+        type: integer
       produces:
       - application/json
       responses:
@@ -203,6 +225,18 @@ paths:
             items:
               $ref: '#/definitions/model.Task'
             type: array
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
       security:
       - BearerAuth: []
       summary: List tasks
@@ -211,7 +245,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Create a new task
+      description: Create a new task. User must be a member of the team.
       parameters:
       - description: Task payload
         in: body
@@ -228,6 +262,18 @@ paths:
             $ref: '#/definitions/model.Task'
         "400":
           description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
           schema:
             additionalProperties:
               type: string
