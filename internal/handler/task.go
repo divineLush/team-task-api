@@ -15,11 +15,13 @@ import (
 )
 
 type TaskHandler struct {
-	taskService *service.TaskService
+	taskService         *service.TaskService
+	taskCommentHandler  *TaskCommentHandler
+	taskHistoryHandler  *TaskHistoryHandler
 }
 
-func NewTaskHandler(taskService *service.TaskService) *TaskHandler {
-	return &TaskHandler{taskService: taskService}
+func NewTaskHandler(taskService *service.TaskService, commentHandler *TaskCommentHandler, historyHandler *TaskHistoryHandler) *TaskHandler {
+	return &TaskHandler{taskService: taskService, taskCommentHandler: commentHandler, taskHistoryHandler: historyHandler}
 }
 
 func (h *TaskHandler) Routes() chi.Router {
@@ -29,6 +31,8 @@ func (h *TaskHandler) Routes() chi.Router {
 	r.Get("/{id}", h.GetByID)
 	r.Put("/{id}", h.Update)
 	r.Delete("/{id}", h.Delete)
+	r.Mount("/{id}/comments", h.taskCommentHandler.Routes())
+	r.Mount("/{id}/history", h.taskHistoryHandler.Routes())
 	return r
 }
 
@@ -132,18 +136,44 @@ func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 // GetByID godoc
 // @Summary      Get a task
-// @Description  Get a task by ID
+// @Description  Get a task by ID. User must be a member of the task's team.
 // @Tags         tasks
 // @Produce      json
 // @Security     BearerAuth
 // @Param        id   path      string  true  "Task ID"
 // @Success      200  {object}  model.Task
+// @Failure      401  {object}  map[string]string
+// @Failure      403  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
 // @Router       /api/v1/tasks/{id} [get]
-func (h *TaskHandler) GetByID(w http.ResponseWriter, r *http.Request) {}
+func (h *TaskHandler) GetByID(w http.ResponseWriter, r *http.Request) {
+	taskID := chi.URLParam(r, "id")
+
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	task, err := h.taskService.GetByID(r.Context(), userID, taskID)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrNotTeamMember):
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": err.Error()})
+		case errors.Is(err, service.ErrTaskNotFound):
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
+		default:
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		}
+		return
+	}
+
+	writeJSON(w, http.StatusOK, task)
+}
 
 // Update godoc
 // @Summary      Update a task
-// @Description  Update a task by ID
+// @Description  Update a task by ID. User must be a member of the task's team.
 // @Tags         tasks
 // @Accept       json
 // @Produce      json
@@ -152,15 +182,73 @@ func (h *TaskHandler) GetByID(w http.ResponseWriter, r *http.Request) {}
 // @Param        body body      model.UpdateTaskRequest  true  "Update payload"
 // @Success      200  {object}  model.Task
 // @Failure      400  {object}  map[string]string
+// @Failure      401  {object}  map[string]string
+// @Failure      403  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
 // @Router       /api/v1/tasks/{id} [put]
-func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {}
+func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
+	taskID := chi.URLParam(r, "id")
+
+	var req model.UpdateTaskRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	task, err := h.taskService.Update(r.Context(), userID, taskID, &req)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrNotTeamMember), errors.Is(err, service.ErrAssigneeNotMember):
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": err.Error()})
+		case errors.Is(err, service.ErrTaskNotFound):
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
+		default:
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		}
+		return
+	}
+
+	writeJSON(w, http.StatusOK, task)
+}
 
 // Delete godoc
 // @Summary      Delete a task
-// @Description  Delete a task by ID
+// @Description  Delete a task by ID. User must be a member of the task's team.
 // @Tags         tasks
 // @Security     BearerAuth
 // @Param        id   path      string  true  "Task ID"
 // @Success      204
+// @Failure      401  {object}  map[string]string
+// @Failure      403  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
 // @Router       /api/v1/tasks/{id} [delete]
-func (h *TaskHandler) Delete(w http.ResponseWriter, r *http.Request) {}
+func (h *TaskHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	taskID := chi.URLParam(r, "id")
+
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	err := h.taskService.Delete(r.Context(), userID, taskID)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrNotTeamMember):
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": err.Error()})
+		case errors.Is(err, service.ErrTaskNotFound):
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
+		default:
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}

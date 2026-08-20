@@ -15,6 +15,7 @@ var (
 	ErrNotMember     = errors.New("user is not a member of this team")
 	ErrForbidden     = errors.New("insufficient permissions")
 	ErrAlreadyMember = errors.New("user is already a member of this team")
+	ErrTeamNotFound  = errors.New("team not found")
 )
 
 type TeamService struct {
@@ -114,6 +115,123 @@ func (s *TeamService) Invite(ctx context.Context, callerID, teamID string, req *
 			return ErrAlreadyMember
 		}
 		return fmt.Errorf("add team member: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit tx: %w", err)
+	}
+
+	return nil
+}
+
+func (s *TeamService) GetByID(ctx context.Context, userID, teamID string) (*model.Team, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	txTeamRepo := repository.NewTeamRepository(tx)
+	txMemberRepo := repository.NewTeamMemberRepository(tx)
+
+	team, err := txTeamRepo.GetByID(ctx, teamID)
+	if err != nil {
+		return nil, fmt.Errorf("get team: %w", err)
+	}
+	if team == nil {
+		return nil, ErrTeamNotFound
+	}
+
+	member, err := txMemberRepo.Get(ctx, teamID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("check membership: %w", err)
+	}
+	if member == nil {
+		return nil, ErrNotMember
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit tx: %w", err)
+	}
+
+	return team, nil
+}
+
+func (s *TeamService) Update(ctx context.Context, userID, teamID string, req *model.UpdateTeamRequest) (*model.Team, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	txTeamRepo := repository.NewTeamRepository(tx)
+	txMemberRepo := repository.NewTeamMemberRepository(tx)
+
+	team, err := txTeamRepo.GetByID(ctx, teamID)
+	if err != nil {
+		return nil, fmt.Errorf("get team: %w", err)
+	}
+	if team == nil {
+		return nil, ErrTeamNotFound
+	}
+
+	caller, err := txMemberRepo.Get(ctx, teamID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("check membership: %w", err)
+	}
+	if caller == nil {
+		return nil, ErrNotMember
+	}
+	if caller.Role != model.RoleOwner && caller.Role != model.RoleAdmin {
+		return nil, ErrForbidden
+	}
+
+	if req.Name != nil {
+		team.Name = *req.Name
+	}
+
+	if err := txTeamRepo.Update(ctx, team); err != nil {
+		return nil, fmt.Errorf("update team: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit tx: %w", err)
+	}
+
+	return team, nil
+}
+
+func (s *TeamService) Delete(ctx context.Context, userID, teamID string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	txTeamRepo := repository.NewTeamRepository(tx)
+	txMemberRepo := repository.NewTeamMemberRepository(tx)
+
+	team, err := txTeamRepo.GetByID(ctx, teamID)
+	if err != nil {
+		return fmt.Errorf("get team: %w", err)
+	}
+	if team == nil {
+		return ErrTeamNotFound
+	}
+
+	caller, err := txMemberRepo.Get(ctx, teamID, userID)
+	if err != nil {
+		return fmt.Errorf("check membership: %w", err)
+	}
+	if caller == nil {
+		return ErrNotMember
+	}
+	if caller.Role != model.RoleOwner {
+		return ErrForbidden
+	}
+
+	if err := txTeamRepo.Delete(ctx, teamID); err != nil {
+		return fmt.Errorf("delete team: %w", err)
 	}
 
 	if err := tx.Commit(); err != nil {

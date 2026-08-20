@@ -49,14 +49,20 @@ func main() {
 	teamRepo := repository.NewTeamRepository(db)
 	teamMemberRepo := repository.NewTeamMemberRepository(db)
 	taskRepo := repository.NewTaskRepository(db)
+	taskCommentRepo := repository.NewTaskCommentRepository(db)
+	taskHistoryRepo := repository.NewTaskHistoryRepository(db)
 
 	authService := service.NewAuthService(db, userRepo, cfg.Auth)
 	teamService := service.NewTeamService(db, teamRepo, teamMemberRepo)
 	taskService := service.NewTaskService(db, taskRepo, teamMemberRepo)
+	taskCommentService := service.NewTaskCommentService(db, taskCommentRepo, taskRepo, teamMemberRepo)
+	taskHistoryService := service.NewTaskHistoryService(db, taskHistoryRepo, taskRepo, teamMemberRepo)
 
 	authHandler := handler.NewAuthHandler(authService)
 	teamHandler := handler.NewTeamHandler(teamService)
-	taskHandler := handler.NewTaskHandler(taskService)
+	taskCommentHandler := handler.NewTaskCommentHandler(taskCommentService)
+	taskHistoryHandler := handler.NewTaskHistoryHandler(taskHistoryService)
+	taskHandler := handler.NewTaskHandler(taskService, taskCommentHandler, taskHistoryHandler)
 
 	r := chi.NewRouter()
 

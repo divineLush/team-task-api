@@ -92,19 +92,44 @@ func (h *TeamHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 // GetByID godoc
 // @Summary      Get a team
-// @Description  Get a team by ID
+// @Description  Get a team by ID. User must be a member of the team.
 // @Tags         teams
 // @Produce      json
 // @Security     BearerAuth
 // @Param        id   path      string  true  "Team ID"
 // @Success      200  {object}  model.Team
 // @Failure      401  {object}  map[string]string
+// @Failure      403  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
 // @Router       /api/v1/teams/{id} [get]
-func (h *TeamHandler) GetByID(w http.ResponseWriter, r *http.Request) {}
+func (h *TeamHandler) GetByID(w http.ResponseWriter, r *http.Request) {
+	teamID := chi.URLParam(r, "id")
+
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	team, err := h.teamService.GetByID(r.Context(), userID, teamID)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrNotMember):
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": err.Error()})
+		case errors.Is(err, service.ErrTeamNotFound):
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
+		default:
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		}
+		return
+	}
+
+	writeJSON(w, http.StatusOK, team)
+}
 
 // Update godoc
 // @Summary      Update a team
-// @Description  Update a team by ID
+// @Description  Update a team by ID. Caller must be owner or admin.
 // @Tags         teams
 // @Accept       json
 // @Produce      json
@@ -114,19 +139,75 @@ func (h *TeamHandler) GetByID(w http.ResponseWriter, r *http.Request) {}
 // @Success      200  {object}  model.Team
 // @Failure      400  {object}  map[string]string
 // @Failure      401  {object}  map[string]string
+// @Failure      403  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
 // @Router       /api/v1/teams/{id} [put]
-func (h *TeamHandler) Update(w http.ResponseWriter, r *http.Request) {}
+func (h *TeamHandler) Update(w http.ResponseWriter, r *http.Request) {
+	teamID := chi.URLParam(r, "id")
+
+	var req model.UpdateTeamRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	team, err := h.teamService.Update(r.Context(), userID, teamID, &req)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrNotMember), errors.Is(err, service.ErrForbidden):
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": err.Error()})
+		case errors.Is(err, service.ErrTeamNotFound):
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
+		default:
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		}
+		return
+	}
+
+	writeJSON(w, http.StatusOK, team)
+}
 
 // Delete godoc
 // @Summary      Delete a team
-// @Description  Delete a team by ID
+// @Description  Delete a team by ID. Caller must be the team owner.
 // @Tags         teams
 // @Security     BearerAuth
 // @Param        id   path      string  true  "Team ID"
 // @Success      204
 // @Failure      401  {object}  map[string]string
+// @Failure      403  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
 // @Router       /api/v1/teams/{id} [delete]
-func (h *TeamHandler) Delete(w http.ResponseWriter, r *http.Request) {}
+func (h *TeamHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	teamID := chi.URLParam(r, "id")
+
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	err := h.teamService.Delete(r.Context(), userID, teamID)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrNotMember), errors.Is(err, service.ErrForbidden):
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": err.Error()})
+		case errors.Is(err, service.ErrTeamNotFound):
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
+		default:
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
 
 // Invite godoc
 // @Summary      Invite user to team

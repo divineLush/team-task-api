@@ -11,7 +11,9 @@ import (
 )
 
 var (
-	ErrNotTeamMember = errors.New("user is not a member of this team")
+	ErrNotTeamMember    = errors.New("user is not a member of this team")
+	ErrTaskNotFound     = errors.New("task not found")
+	ErrAssigneeNotMember = errors.New("assignee is not a member of this team")
 )
 
 type TaskService struct {
@@ -116,4 +118,131 @@ func (s *TaskService) List(ctx context.Context, userID string, filter repository
 	}
 
 	return tasks, nil
+}
+
+func (s *TaskService) Update(ctx context.Context, userID, taskID string, req *model.UpdateTaskRequest) (*model.Task, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	txMemberRepo := repository.NewTeamMemberRepository(tx)
+	txTaskRepo := repository.NewTaskRepository(tx)
+
+	task, err := txTaskRepo.GetByID(ctx, taskID)
+	if err != nil {
+		return nil, fmt.Errorf("get task: %w", err)
+	}
+	if task == nil {
+		return nil, ErrTaskNotFound
+	}
+
+	member, err := txMemberRepo.Get(ctx, task.TeamID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("check membership: %w", err)
+	}
+	if member == nil {
+		return nil, ErrNotTeamMember
+	}
+
+	if req.Title != nil {
+		task.Title = *req.Title
+	}
+	if req.Description != nil {
+		task.Description = *req.Description
+	}
+	if req.Status != nil {
+		task.Status = *req.Status
+	}
+	if req.AssigneeID != nil {
+		assignee, err := txMemberRepo.Get(ctx, task.TeamID, *req.AssigneeID)
+		if err != nil {
+			return nil, fmt.Errorf("check assignee membership: %w", err)
+		}
+		if assignee == nil {
+			return nil, ErrAssigneeNotMember
+		}
+		task.AssigneeID = req.AssigneeID
+	}
+
+	if err := txTaskRepo.Update(ctx, task); err != nil {
+		return nil, fmt.Errorf("update task: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit tx: %w", err)
+	}
+
+	return task, nil
+}
+
+func (s *TaskService) GetByID(ctx context.Context, userID, taskID string) (*model.Task, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	txMemberRepo := repository.NewTeamMemberRepository(tx)
+	txTaskRepo := repository.NewTaskRepository(tx)
+
+	task, err := txTaskRepo.GetByID(ctx, taskID)
+	if err != nil {
+		return nil, fmt.Errorf("get task: %w", err)
+	}
+	if task == nil {
+		return nil, ErrTaskNotFound
+	}
+
+	member, err := txMemberRepo.Get(ctx, task.TeamID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("check membership: %w", err)
+	}
+	if member == nil {
+		return nil, ErrNotTeamMember
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit tx: %w", err)
+	}
+
+	return task, nil
+}
+
+func (s *TaskService) Delete(ctx context.Context, userID, taskID string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	txMemberRepo := repository.NewTeamMemberRepository(tx)
+	txTaskRepo := repository.NewTaskRepository(tx)
+
+	task, err := txTaskRepo.GetByID(ctx, taskID)
+	if err != nil {
+		return fmt.Errorf("get task: %w", err)
+	}
+	if task == nil {
+		return ErrTaskNotFound
+	}
+
+	member, err := txMemberRepo.Get(ctx, task.TeamID, userID)
+	if err != nil {
+		return fmt.Errorf("check membership: %w", err)
+	}
+	if member == nil {
+		return ErrNotTeamMember
+	}
+
+	if err := txTaskRepo.Delete(ctx, taskID); err != nil {
+		return fmt.Errorf("delete task: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit tx: %w", err)
+	}
+
+	return nil
 }
