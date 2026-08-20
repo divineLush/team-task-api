@@ -148,7 +148,11 @@ func (s *TaskService) Update(ctx context.Context, userID, taskID string, req *mo
 		return nil, ErrNotTeamMember
 	}
 
-	if task.CreatedBy != userID && (task.AssigneeID == nil || *task.AssigneeID != userID) {
+	isPrivileged := member.Role == model.RoleOwner || member.Role == model.RoleAdmin
+	isCreator := task.CreatedBy == userID
+	isAssignee := task.AssigneeID != nil && *task.AssigneeID == userID
+
+	if !isPrivileged && !isCreator && !isAssignee {
 		return nil, ErrNotAuthorized
 	}
 
@@ -161,7 +165,7 @@ func (s *TaskService) Update(ctx context.Context, userID, taskID string, req *mo
 	if req.Status != nil {
 		task.Status = *req.Status
 	}
-	if req.AssigneeID != nil && task.CreatedBy != userID {
+	if req.AssigneeID != nil && !isPrivileged && !isCreator {
 		return nil, ErrCannotReassign
 	}
 
