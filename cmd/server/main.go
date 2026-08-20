@@ -48,6 +48,7 @@ func main() {
 
 	r.Use(chimw.RequestID)
 	r.Use(chimw.RealIP)
+	r.Use(middleware.NewRateLimiter(100, 200).Limit)
 	r.Use(middleware.Logger(log))
 	r.Use(chimw.Recoverer)
 	r.Use(chimw.Compress(5))
