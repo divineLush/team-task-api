@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	httpSwagger "github.com/swaggo/http-swagger"
 
 	"github.com/team-task-api/internal/config"
 	"github.com/team-task-api/internal/handler"
@@ -15,8 +16,18 @@ import (
 	"github.com/team-task-api/internal/service"
 	"github.com/team-task-api/pkg/database"
 	"github.com/team-task-api/pkg/logger"
+
+	_ "github.com/team-task-api/docs"
 )
 
+// @title Team Task API
+// @version 1.0
+// @description API for managing tasks between teams
+// @host localhost:8080
+// @BasePath /
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 func main() {
 	cfg := config.Load()
 
@@ -73,6 +84,10 @@ func main() {
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("ok"))
 	})
+
+	r.Get("/swagger/*", httpSwagger.Handler(
+		httpSwagger.URL("/swagger/doc.json"),
+	))
 
 	addr := fmt.Sprintf(":%s", cfg.Server.Port)
 	log.Info("server starting", "addr", addr)

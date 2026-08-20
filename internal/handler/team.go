@@ -31,6 +31,15 @@ func (h *TeamHandler) Routes() chi.Router {
 	return r
 }
 
+// List godoc
+// @Summary      List user's teams
+// @Description  Get all teams the authenticated user belongs to
+// @Tags         teams
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {array}   model.Team
+// @Failure      401  {object}  map[string]string
+// @Router       /api/v1/teams [get]
 func (h *TeamHandler) List(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserID(r.Context())
 	if userID == "" {
@@ -47,6 +56,18 @@ func (h *TeamHandler) List(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, teams)
 }
 
+// Create godoc
+// @Summary      Create a team
+// @Description  Create a new team. The authenticated user becomes the owner.
+// @Tags         teams
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body      model.CreateTeamRequest  true  "Team payload"
+// @Success      201   {object}  model.Team
+// @Failure      400   {object}  map[string]string
+// @Failure      401   {object}  map[string]string
+// @Router       /api/v1/teams [post]
 func (h *TeamHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req model.CreateTeamRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -69,12 +90,59 @@ func (h *TeamHandler) Create(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, team)
 }
 
+// GetByID godoc
+// @Summary      Get a team
+// @Description  Get a team by ID
+// @Tags         teams
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      string  true  "Team ID"
+// @Success      200  {object}  model.Team
+// @Failure      401  {object}  map[string]string
+// @Router       /api/v1/teams/{id} [get]
 func (h *TeamHandler) GetByID(w http.ResponseWriter, r *http.Request) {}
 
+// Update godoc
+// @Summary      Update a team
+// @Description  Update a team by ID
+// @Tags         teams
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      string                  true  "Team ID"
+// @Param        body body      model.UpdateTeamRequest  true  "Update payload"
+// @Success      200  {object}  model.Team
+// @Failure      400  {object}  map[string]string
+// @Failure      401  {object}  map[string]string
+// @Router       /api/v1/teams/{id} [put]
 func (h *TeamHandler) Update(w http.ResponseWriter, r *http.Request) {}
 
+// Delete godoc
+// @Summary      Delete a team
+// @Description  Delete a team by ID
+// @Tags         teams
+// @Security     BearerAuth
+// @Param        id   path      string  true  "Team ID"
+// @Success      204
+// @Failure      401  {object}  map[string]string
+// @Router       /api/v1/teams/{id} [delete]
 func (h *TeamHandler) Delete(w http.ResponseWriter, r *http.Request) {}
 
+// Invite godoc
+// @Summary      Invite user to team
+// @Description  Add a user to the team. Caller must be owner or admin.
+// @Tags         teams
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      string                true  "Team ID"
+// @Param        body body      model.InviteRequest   true  "Invite payload"
+// @Success      201   {object}  map[string]string
+// @Failure      400   {object}  map[string]string
+// @Failure      401   {object}  map[string]string
+// @Failure      403   {object}  map[string]string
+// @Failure      409   {object}  map[string]string
+// @Router       /api/v1/teams/{id}/invite [post]
 func (h *TeamHandler) Invite(w http.ResponseWriter, r *http.Request) {
 	teamID := chi.URLParam(r, "id")
 

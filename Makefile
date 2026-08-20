@@ -1,4 +1,4 @@
-.PHONY: help up down restart logs build run test migrate-up migrate-down clean
+.PHONY: help up down restart logs build run test swagger migrate-up migrate-down clean
 
 DB_CONTAINER := team-task-mysql
 DB_USER := teamtask
@@ -28,6 +28,9 @@ run: ## run the server
 
 test: ## run tests
 	go test ./... -v
+
+swagger: ## generate swagger docs
+	swag init -g cmd/server/main.go
 
 migrate-up: ## run all migrations
 	@for f in migrations/*.up.sql; do \

@@ -26,6 +26,17 @@ func (h *AuthHandler) Routes() chi.Router {
 	return r
 }
 
+// Register godoc
+// @Summary      Register a new user
+// @Description  Create a new user account
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body      model.CreateUserRequest  true  "Registration payload"
+// @Success      201   {object}  model.AuthResponse
+// @Failure      400   {object}  map[string]string
+// @Failure      409   {object}  map[string]string
+// @Router       /api/v1/register [post]
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req model.CreateUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -47,6 +58,17 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, resp)
 }
 
+// Login godoc
+// @Summary      Login
+// @Description  Authenticate with email and password
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body      model.LoginUserRequest  true  "Login payload"
+// @Success      200   {object}  model.AuthResponse
+// @Failure      400   {object}  map[string]string
+// @Failure      401   {object}  map[string]string
+// @Router       /api/v1/login [post]
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req model.LoginUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
