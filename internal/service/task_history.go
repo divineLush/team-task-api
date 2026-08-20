@@ -2,59 +2,66 @@ package service
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 
 	"github.com/team-task-api/internal/model"
-	"github.com/team-task-api/internal/repository"
+	"github.com/team-task-api/pkg/database"
 )
 
 type TaskHistoryService struct {
-	db             *sql.DB
-	historyRepo    *repository.TaskHistoryRepository
-	taskRepo       *repository.TaskRepository
-	teamMemberRepo *repository.TeamMemberRepository
+	txm                database.TxManager
+	historyRepo        TaskHistoryRepository
+	taskRepo           TaskRepository
+	newTaskRepoInTx    func(database.Querier) TaskRepository
+	newMemberRepoInTx  func(database.Querier) TeamMemberRepository
+	newHistoryRepoInTx func(database.Querier) TaskHistoryRepository
 }
 
-func NewTaskHistoryService(db *sql.DB, historyRepo *repository.TaskHistoryRepository, taskRepo *repository.TaskRepository, teamMemberRepo *repository.TeamMemberRepository) *TaskHistoryService {
-	return &TaskHistoryService{db: db, historyRepo: historyRepo, taskRepo: taskRepo, teamMemberRepo: teamMemberRepo}
+func NewTaskHistoryService(txm database.TxManager, historyRepo TaskHistoryRepository, taskRepo TaskRepository) *TaskHistoryService {
+	return &TaskHistoryService{
+		txm:                txm,
+		historyRepo:        historyRepo,
+		taskRepo:           taskRepo,
+		newTaskRepoInTx:    newTxTaskRepo,
+		newMemberRepoInTx:  newTxTeamMemberRepo,
+		newHistoryRepoInTx: newTxTaskHistoryRepo,
+	}
 }
 
 func (s *TaskHistoryService) List(ctx context.Context, userID, taskID string) ([]model.TaskHistory, error) {
-	tx, err := s.db.BeginTx(ctx, nil)
+	var history []model.TaskHistory
+
+	err := s.txm.InTx(ctx, func(tx database.Querier) error {
+		txTaskRepo := s.newTaskRepoInTx(tx)
+		txMemberRepo := s.newMemberRepoInTx(tx)
+		txHistoryRepo := s.newHistoryRepoInTx(tx)
+
+		task, err := txTaskRepo.GetByID(ctx, taskID)
+		if err != nil {
+			return fmt.Errorf("get task: %w", err)
+		}
+		if task == nil {
+			return ErrTaskNotFound
+		}
+
+		member, err := txMemberRepo.Get(ctx, task.TeamID, userID)
+		if err != nil {
+			return fmt.Errorf("check membership: %w", err)
+		}
+		if member == nil {
+			return ErrNotTeamMember
+		}
+
+		history, err = txHistoryRepo.ListByTask(ctx, taskID)
+		if err != nil {
+			return fmt.Errorf("list history: %w", err)
+		}
+
+		return nil
+	})
 	if err != nil {
-		return nil, fmt.Errorf("begin tx: %w", err)
-	}
-	defer tx.Rollback()
-
-	txTaskRepo := repository.NewTaskRepository(tx)
-	txMemberRepo := repository.NewTeamMemberRepository(tx)
-	txHistoryRepo := repository.NewTaskHistoryRepository(tx)
-
-	task, err := txTaskRepo.GetByID(ctx, taskID)
-	if err != nil {
-		return nil, fmt.Errorf("get task: %w", err)
-	}
-	if task == nil {
-		return nil, ErrTaskNotFound
-	}
-
-	member, err := txMemberRepo.Get(ctx, task.TeamID, userID)
-	if err != nil {
-		return nil, fmt.Errorf("check membership: %w", err)
-	}
-	if member == nil {
-		return nil, ErrNotTeamMember
-	}
-
-	history, err := txHistoryRepo.ListByTask(ctx, taskID)
-	if err != nil {
-		return nil, fmt.Errorf("list history: %w", err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("commit tx: %w", err)
+		return nil, err
 	}
 
 	return history, nil

@@ -26,8 +26,25 @@ build: ## build the server binary
 run: ## run the server
 	go run ./cmd/server
 
-test: ## run tests
-	go test ./... -v
+test: ## run all tests
+	go test ./... -count=1
+
+test-v: ## run all tests (verbose)
+	go test ./... -v -count=1
+
+test-race: ## run all tests with race detector
+	go test ./... -race -count=1
+
+test-cover: ## run tests with coverage report
+	go test ./... -cover -count=1
+
+test-cover-html: ## generate coverage report and open in browser
+	go test ./... -coverprofile=coverage.out -count=1
+	go tool cover -html=coverage.out
+	rm coverage.out
+
+test-pkg: ## run tests for a specific package (PKG=internal/service)
+	go test ./$(PKG)/... -v -count=1
 
 swagger: ## generate swagger docs
 	swag init -g cmd/server/main.go
@@ -45,4 +62,4 @@ migrate-down: ## rollback all migrations (reverse order)
 	done
 
 clean: ## remove build artifacts
-	rm -rf bin/
+	rm -rf bin/ coverage.out

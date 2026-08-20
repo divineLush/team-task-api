@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"strings"
@@ -14,7 +13,7 @@ import (
 
 	"github.com/team-task-api/internal/config"
 	"github.com/team-task-api/internal/model"
-	"github.com/team-task-api/internal/repository"
+	"github.com/team-task-api/pkg/database"
 )
 
 var (
@@ -23,53 +22,58 @@ var (
 )
 
 type AuthService struct {
-	db      *sql.DB
-	userRepo *repository.UserRepository
-	cfg      config.AuthConfig
+	txm            database.TxManager
+	userRepo       UserRepository
+	newUserRepoInTx func(database.Querier) UserRepository
+	cfg            config.AuthConfig
 }
 
-func NewAuthService(db *sql.DB, userRepo *repository.UserRepository, cfg config.AuthConfig) *AuthService {
-	return &AuthService{db: db, userRepo: userRepo, cfg: cfg}
+func NewAuthService(txm database.TxManager, userRepo UserRepository, cfg config.AuthConfig) *AuthService {
+	return &AuthService{
+		txm:             txm,
+		userRepo:        userRepo,
+		newUserRepoInTx: newTxUserRepo,
+		cfg:             cfg,
+	}
 }
 
 func (s *AuthService) Register(ctx context.Context, req *model.CreateUserRequest) (*model.AuthResponse, error) {
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("begin tx: %w", err)
-	}
-	defer tx.Rollback()
+	var user *model.User
 
-	txRepo := repository.NewUserRepository(tx)
+	err := s.txm.InTx(ctx, func(tx database.Querier) error {
+		txRepo := s.newUserRepoInTx(tx)
 
-	existing, err := txRepo.GetByEmail(ctx, req.Email)
-	if err != nil {
-		return nil, fmt.Errorf("check email: %w", err)
-	}
-	if existing != nil {
-		return nil, ErrEmailTaken
-	}
-
-	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-	if err != nil {
-		return nil, fmt.Errorf("hash password: %w", err)
-	}
-
-	user := &model.User{
-		Email:        req.Email,
-		PasswordHash: string(hash),
-		Name:         req.Name,
-	}
-
-	if err := txRepo.Create(ctx, user); err != nil {
-		var mysqlErr *mysql.MySQLError
-		if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 && strings.Contains(mysqlErr.Message, "uq_users_email") {
-			return nil, ErrEmailTaken
+		existing, err := txRepo.GetByEmail(ctx, req.Email)
+		if err != nil {
+			return fmt.Errorf("check email: %w", err)
 		}
-		return nil, fmt.Errorf("create user: %w", err)
-	}
+		if existing != nil {
+			return ErrEmailTaken
+		}
 
-	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("commit tx: %w", err)
+		hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+		if err != nil {
+			return fmt.Errorf("hash password: %w", err)
+		}
+
+		user = &model.User{
+			Email:        req.Email,
+			PasswordHash: string(hash),
+			Name:         req.Name,
+		}
+
+		if err := txRepo.Create(ctx, user); err != nil {
+			var mysqlErr *mysql.MySQLError
+			if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 && strings.Contains(mysqlErr.Message, "uq_users_email") {
+				return ErrEmailTaken
+			}
+			return fmt.Errorf("create user: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	token, err := s.generateToken(user)

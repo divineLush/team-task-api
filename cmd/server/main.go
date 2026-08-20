@@ -45,6 +45,8 @@ func main() {
 		log.Error("redis connection failed", "error", err)
 	}
 
+	txm := database.NewTxManager(db)
+
 	taskCache := cache.NewTaskCache(rdb)
 
 	userRepo := repository.NewUserRepository(db)
@@ -54,11 +56,11 @@ func main() {
 	taskCommentRepo := repository.NewTaskCommentRepository(db)
 	taskHistoryRepo := repository.NewTaskHistoryRepository(db)
 
-	authService := service.NewAuthService(db, userRepo, cfg.Auth)
-	teamService := service.NewTeamService(db, teamRepo, teamMemberRepo)
-	taskHistoryService := service.NewTaskHistoryService(db, taskHistoryRepo, taskRepo, teamMemberRepo)
-	taskService := service.NewTaskService(db, taskRepo, teamMemberRepo, taskHistoryService, taskCache)
-	taskCommentService := service.NewTaskCommentService(db, taskCommentRepo, taskRepo, teamMemberRepo)
+	authService := service.NewAuthService(txm, userRepo, cfg.Auth)
+	teamService := service.NewTeamService(txm, teamRepo, teamMemberRepo)
+	taskHistoryService := service.NewTaskHistoryService(txm, taskHistoryRepo, taskRepo)
+	taskService := service.NewTaskService(txm, taskRepo, teamMemberRepo, taskHistoryService, taskCache)
+	taskCommentService := service.NewTaskCommentService(txm, taskCommentRepo, taskRepo)
 
 	authHandler := handler.NewAuthHandler(authService)
 	teamHandler := handler.NewTeamHandler(teamService)
