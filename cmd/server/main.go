@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -15,20 +14,23 @@ import (
 	"github.com/team-task-api/internal/repository"
 	"github.com/team-task-api/internal/service"
 	"github.com/team-task-api/pkg/database"
+	"github.com/team-task-api/pkg/logger"
 )
 
 func main() {
 	cfg := config.Load()
 
+	log := logger.New("info")
+
 	db, err := database.NewMySQL(cfg.DB)
 	if err != nil {
-		log.Fatalf("mysql: %v", err)
+		log.Error("mysql connection failed", "error", err)
 	}
 	defer db.Close()
 
 	rdb, err := database.NewRedis(cfg.RedisCfg)
 	if err != nil {
-		log.Fatalf("redis: %v", err)
+		log.Error("redis connection failed", "error", err)
 	}
 	_ = rdb
 
@@ -46,7 +48,7 @@ func main() {
 
 	r.Use(chimw.RequestID)
 	r.Use(chimw.RealIP)
-	r.Use(middleware.Logger)
+	r.Use(middleware.Logger(log))
 	r.Use(chimw.Recoverer)
 	r.Use(chimw.Compress(5))
 	r.Use(cors.Handler(cors.Options{
@@ -72,8 +74,8 @@ func main() {
 	})
 
 	addr := fmt.Sprintf(":%s", cfg.Server.Port)
-	log.Printf("server starting on %s", addr)
+	log.Info("server starting", "addr", addr)
 	if err := http.ListenAndServe(addr, r); err != nil {
-		log.Fatal(err)
+		log.Error("server failed", "error", err)
 	}
 }

@@ -3,7 +3,7 @@ package database
 import (
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -29,6 +29,6 @@ func NewMySQL(cfg config.DBConfig) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to ping db: %w", err)
 	}
 
-	log.Println("connected to mysql")
+	slog.Info("connected to mysql", "host", cfg.Host, "port", cfg.Port, "database", cfg.Name)
 	return db, nil
 }
