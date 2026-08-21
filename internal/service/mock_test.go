@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/team-task-api/internal/model"
 	"github.com/team-task-api/internal/repository"
@@ -200,6 +201,12 @@ func (r *mockTaskRepo) List(_ context.Context, filter repository.TaskFilter) ([]
 func (r *mockTaskRepo) Update(_ context.Context, task *model.Task) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if task.Status == model.StatusDone {
+		now := time.Now()
+		task.ClosedAt = &now
+	} else {
+		task.ClosedAt = nil
+	}
 	r.tasks[task.ID] = task
 	return nil
 }

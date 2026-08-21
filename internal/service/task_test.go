@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/team-task-api/internal/model"
 	"github.com/team-task-api/internal/repository"
@@ -228,6 +229,51 @@ func TestTaskDelete_NonMemberCannotDelete(t *testing.T) {
 	err := svc.Delete(context.Background(), "outsider", "task-1")
 	if err != ErrNotTeamMember {
 		t.Fatalf("expected ErrNotTeamMember, got %v", err)
+	}
+}
+
+func TestTaskUpdate_SetDoneSetsClosedAt(t *testing.T) {
+	svc, taskRepo, memberRepo, _ := setupTaskService()
+	seedTeamMember(memberRepo, "team-1", "user-1", model.RoleMember)
+	seedTask(taskRepo, &model.Task{
+		ID: "task-1", TeamID: "team-1", Title: "T", CreatedBy: "user-1", Status: model.StatusPending,
+	})
+
+	done := model.StatusDone
+	task, err := svc.Update(context.Background(), "user-1", "task-1", &model.UpdateTaskRequest{
+		Status: &done,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if task.Status != model.StatusDone {
+		t.Errorf("expected status done, got %s", task.Status)
+	}
+	if task.ClosedAt == nil {
+		t.Error("expected closed_at to be set when status is done")
+	}
+}
+
+func TestTaskUpdate_MovingFromDoneClearsClosedAt(t *testing.T) {
+	svc, taskRepo, memberRepo, _ := setupTaskService()
+	seedTeamMember(memberRepo, "team-1", "user-1", model.RoleMember)
+	now := time.Now()
+	seedTask(taskRepo, &model.Task{
+		ID: "task-1", TeamID: "team-1", Title: "T", CreatedBy: "user-1", Status: model.StatusDone, ClosedAt: &now,
+	})
+
+	inProgress := model.StatusInProgress
+	task, err := svc.Update(context.Background(), "user-1", "task-1", &model.UpdateTaskRequest{
+		Status: &inProgress,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if task.Status != model.StatusInProgress {
+		t.Errorf("expected status in_progress, got %s", task.Status)
+	}
+	if task.ClosedAt != nil {
+		t.Error("expected closed_at to be cleared when moving away from done")
 	}
 }
 

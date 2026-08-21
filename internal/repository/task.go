@@ -103,10 +103,11 @@ func (r *TaskRepository) List(ctx context.Context, filter TaskFilter) ([]model.T
 }
 
 func (r *TaskRepository) Update(ctx context.Context, task *model.Task) error {
-	query := `UPDATE tasks SET title = ?, description = ?, status = ?, assignee_id = ?, version = version + 1
+	query := `UPDATE tasks SET title = ?, description = ?, status = ?, assignee_id = ?,
+		closed_at = IF(? = 'done', NOW(), NULL), version = version + 1
 		WHERE id = ? AND version = ?`
 	result, err := r.db.ExecContext(ctx, query,
-		task.Title, task.Description, task.Status, task.AssigneeID, task.ID, task.Version,
+		task.Title, task.Description, task.Status, task.AssigneeID, task.Status, task.ID, task.Version,
 	)
 	if err != nil {
 		return fmt.Errorf("update task: %w", err)
