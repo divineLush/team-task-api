@@ -5,8 +5,9 @@ A REST API for managing tasks between teams. Built with Go, MySQL, and Redis.
 ## Quick Start
 
 ```bash
-make setup   # create .env from example
-make up      # build and start app + mysql + redis
+make setup       # create .env from example
+make up          # build and start app + mysql + redis
+make migrate-up  # apply database migrations
 ```
 
 The API is available at `http://localhost:8080`. Swagger docs at `http://localhost:8080/swagger/`.
@@ -124,6 +125,7 @@ curl "http://localhost:8080/api/v1/tasks?status=pending" \
 ```bash
 make setup          # create .env from example
 make up             # build and start all services
+make migrate-up     # apply database migrations
 make rebuild        # wipe data, rebuild image, and start fresh
 make down           # stop all containers
 make logs           # tail all logs
