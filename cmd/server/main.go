@@ -1,10 +1,14 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
@@ -48,6 +52,7 @@ func main() {
 		log.Error("redis connection failed", "error", err)
 		os.Exit(1)
 	}
+	defer rdb.Close()
 
 	txm := database.NewTxManager(db)
 
@@ -128,7 +133,35 @@ func main() {
 
 	addr := fmt.Sprintf(":%s", cfg.Server.Port)
 	log.Info("server starting", "addr", addr)
-	if err := http.ListenAndServe(addr, r); err != nil {
-		log.Error("server failed", "error", err)
+
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           r,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
+
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Error("server failed", "error", err)
+			os.Exit(1)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	sig := <-quit
+	log.Info("shutting down", "signal", sig.String())
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Error("shutdown error", "error", err)
+		os.Exit(1)
+	}
+
+	log.Info("server stopped gracefully")
 }
