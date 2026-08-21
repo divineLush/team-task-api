@@ -24,6 +24,7 @@ type TeamMemberRepository interface {
 	Add(ctx context.Context, m *model.TeamMember) error
 	Get(ctx context.Context, teamID, userID string) (*model.TeamMember, error)
 	ListByUser(ctx context.Context, userID string) ([]model.TeamMember, error)
+	GetStats(ctx context.Context, teamID string) (*model.TeamStats, error)
 }
 
 type TaskRepository interface {

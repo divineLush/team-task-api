@@ -141,6 +141,14 @@ func (r *mockTeamMemberRepo) ListByUser(_ context.Context, userID string) ([]mod
 	return members, nil
 }
 
+func (r *mockTeamMemberRepo) GetStats(_ context.Context, teamID string) (*model.TeamStats, error) {
+	return &model.TeamStats{
+		TopMembers:   []model.MemberStats{},
+		CommentCount: 0,
+		Tasks:        []model.TaskStatusCount{},
+	}, nil
+}
+
 type mockTaskRepo struct {
 	mu    sync.Mutex
 	tasks map[string]*model.Task

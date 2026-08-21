@@ -259,3 +259,88 @@ func TestTeamInvite_AlreadyMember(t *testing.T) {
 		t.Fatalf("expected ErrAlreadyMember, got %v", err)
 	}
 }
+
+func TestTeamStats_OwnerCanView(t *testing.T) {
+	txm := &mockTxManager{}
+	teamRepo := newMockTeamRepo()
+	memberRepo := newMockTeamMemberRepo()
+	svc := NewTeamService(txm, teamRepo, memberRepo)
+	overrideTeamFactories(svc, teamRepo, memberRepo)
+
+	team, _ := svc.Create(context.Background(), "owner", &model.CreateTeamRequest{Name: "Team"})
+
+	stats, err := svc.Stats(context.Background(), "owner", team.ID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if stats == nil {
+		t.Fatal("expected stats, got nil")
+	}
+}
+
+func TestTeamStats_AdminCanView(t *testing.T) {
+	txm := &mockTxManager{}
+	teamRepo := newMockTeamRepo()
+	memberRepo := newMockTeamMemberRepo()
+	svc := NewTeamService(txm, teamRepo, memberRepo)
+	overrideTeamFactories(svc, teamRepo, memberRepo)
+
+	team, _ := svc.Create(context.Background(), "owner", &model.CreateTeamRequest{Name: "Team"})
+	memberRepo.Add(context.Background(), &model.TeamMember{
+		TeamID: team.ID, UserID: "admin-1", Role: model.RoleAdmin,
+	})
+
+	stats, err := svc.Stats(context.Background(), "admin-1", team.ID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if stats == nil {
+		t.Fatal("expected stats, got nil")
+	}
+}
+
+func TestTeamStats_MemberCannotView(t *testing.T) {
+	txm := &mockTxManager{}
+	teamRepo := newMockTeamRepo()
+	memberRepo := newMockTeamMemberRepo()
+	svc := NewTeamService(txm, teamRepo, memberRepo)
+	overrideTeamFactories(svc, teamRepo, memberRepo)
+
+	team, _ := svc.Create(context.Background(), "owner", &model.CreateTeamRequest{Name: "Team"})
+	memberRepo.Add(context.Background(), &model.TeamMember{
+		TeamID: team.ID, UserID: "member-1", Role: model.RoleMember,
+	})
+
+	_, err := svc.Stats(context.Background(), "member-1", team.ID)
+	if err != ErrForbidden {
+		t.Fatalf("expected ErrForbidden, got %v", err)
+	}
+}
+
+func TestTeamStats_NonMemberCannotView(t *testing.T) {
+	txm := &mockTxManager{}
+	teamRepo := newMockTeamRepo()
+	memberRepo := newMockTeamMemberRepo()
+	svc := NewTeamService(txm, teamRepo, memberRepo)
+	overrideTeamFactories(svc, teamRepo, memberRepo)
+
+	team, _ := svc.Create(context.Background(), "owner", &model.CreateTeamRequest{Name: "Team"})
+
+	_, err := svc.Stats(context.Background(), "outsider", team.ID)
+	if err != ErrNotMember {
+		t.Fatalf("expected ErrNotMember, got %v", err)
+	}
+}
+
+func TestTeamStats_TeamNotFound(t *testing.T) {
+	txm := &mockTxManager{}
+	teamRepo := newMockTeamRepo()
+	memberRepo := newMockTeamMemberRepo()
+	svc := NewTeamService(txm, teamRepo, memberRepo)
+	overrideTeamFactories(svc, teamRepo, memberRepo)
+
+	_, err := svc.Stats(context.Background(), "owner", "nonexistent")
+	if err != ErrTeamNotFound {
+		t.Fatalf("expected ErrTeamNotFound, got %v", err)
+	}
+}

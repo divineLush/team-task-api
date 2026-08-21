@@ -234,3 +234,43 @@ func (s *TeamService) Delete(ctx context.Context, userID, teamID string) error {
 		return nil
 	})
 }
+
+func (s *TeamService) Stats(ctx context.Context, userID, teamID string) (*model.TeamStats, error) {
+	var stats *model.TeamStats
+
+	err := s.txm.InTx(ctx, func(tx database.Querier) error {
+		txTeamRepo := s.newTeamRepoInTx(tx)
+		txMemberRepo := s.newMemberRepoInTx(tx)
+
+		team, err := txTeamRepo.GetByID(ctx, teamID)
+		if err != nil {
+			return fmt.Errorf("get team: %w", err)
+		}
+		if team == nil {
+			return ErrTeamNotFound
+		}
+
+		member, err := txMemberRepo.Get(ctx, teamID, userID)
+		if err != nil {
+			return fmt.Errorf("check membership: %w", err)
+		}
+		if member == nil {
+			return ErrNotMember
+		}
+		if member.Role != model.RoleOwner && member.Role != model.RoleAdmin {
+			return ErrForbidden
+		}
+
+		stats, err = txMemberRepo.GetStats(ctx, teamID)
+		if err != nil {
+			return fmt.Errorf("get stats: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return stats, nil
+}

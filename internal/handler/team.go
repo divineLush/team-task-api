@@ -29,6 +29,7 @@ func (h *TeamHandler) Routes() chi.Router {
 	r.Put("/{id}", h.Update)
 	r.Delete("/{id}", h.Delete)
 	r.Post("/{id}/invite", h.Invite)
+	r.Get("/{id}/stats", h.Stats)
 	return r
 }
 
@@ -306,4 +307,45 @@ func (h *TeamHandler) Invite(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusCreated, map[string]string{"message": "user invited"})
+}
+
+// Stats godoc
+// @Summary      Get team stats
+// @Description  Get team statistics. Caller must be owner or admin.
+// @Tags         teams
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      string  true  "Team ID"
+// @Success      200  {object}  model.TeamStats
+// @Failure      401  {object}  map[string]string
+// @Failure      403  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Router       /api/v1/teams/{id}/stats [get]
+func (h *TeamHandler) Stats(w http.ResponseWriter, r *http.Request) {
+	teamID := chi.URLParam(r, "id")
+	if teamID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "team id is required"})
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	stats, err := h.teamService.Stats(r.Context(), userID, teamID)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrNotMember), errors.Is(err, service.ErrForbidden):
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": err.Error()})
+		case errors.Is(err, service.ErrTeamNotFound):
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
+		default:
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		}
+		return
+	}
+
+	writeJSON(w, http.StatusOK, stats)
 }

@@ -57,8 +57,9 @@ All config is via environment variables (see `.env.example`):
 | `DELETE` | `/api/v1/tasks/{id}` | Delete task |
 | `POST` | `/api/v1/tasks/{id}/comments` | Add comment |
 | `GET` | `/api/v1/tasks/{id}/comments` | List comments |
-| `DELETE` | `/api/v1/tasks/{id}/comments/{commentID}` | Delete comment |
-| `GET` | `/api/v1/tasks/{id}/history` | View change history |
+| `DELETE` | `/api/v1/teams/{id}/comments/{commentID}` | Delete comment |
+| `GET` | `/api/v1/teams/{id}/history` | View change history |
+| `GET` | `/api/v1/teams/{id}/stats` | Team stats (owner/admin only) |
 
 ### Roles
 
