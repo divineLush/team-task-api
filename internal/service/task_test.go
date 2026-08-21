@@ -277,6 +277,75 @@ func TestTaskUpdate_MovingFromDoneClearsClosedAt(t *testing.T) {
 	}
 }
 
+func TestTaskUpdate_MultipleEditsAccumulateHistory(t *testing.T) {
+	svc, taskRepo, memberRepo, historyRepo := setupTaskService()
+	seedTeamMember(memberRepo, "team-1", "user-1", model.RoleMember)
+	seedTeamMember(memberRepo, "team-1", "user-2", model.RoleMember)
+	seedTask(taskRepo, &model.Task{
+		ID: "task-1", TeamID: "team-1", Title: "Original", Description: "Desc", CreatedBy: "user-1", Status: model.StatusPending,
+	})
+
+	// Edit 1: change title
+	newTitle := "Updated Title"
+	_, err := svc.Update(context.Background(), "user-1", "task-1", &model.UpdateTaskRequest{
+		Title: &newTitle,
+	})
+	if err != nil {
+		t.Fatalf("update 1: %v", err)
+	}
+
+	// Edit 2: change status
+	newStatus := model.StatusInProgress
+	_, err = svc.Update(context.Background(), "user-1", "task-1", &model.UpdateTaskRequest{
+		Status: &newStatus,
+	})
+	if err != nil {
+		t.Fatalf("update 2: %v", err)
+	}
+
+	// Edit 3: change description + assignee
+	newDesc := "Updated Desc"
+	_, err = svc.Update(context.Background(), "user-1", "task-1", &model.UpdateTaskRequest{
+		Description: &newDesc,
+		AssigneeID:  strP("user-2"),
+	})
+	if err != nil {
+		t.Fatalf("update 3: %v", err)
+	}
+
+	history, err := historyRepo.ListByTask(context.Background(), "task-1")
+	if err != nil {
+		t.Fatalf("list history: %v", err)
+	}
+	if len(history) != 3 {
+		t.Fatalf("expected 3 history entries, got %d", len(history))
+	}
+
+	var allChanges string
+	for _, h := range history {
+		allChanges += h.Changes
+	}
+
+	for _, field := range []string{"title", "status", "description", "assignee_id"} {
+		if !contains(allChanges, "\""+field+"\"") {
+			t.Errorf("history missing change for field %q", field)
+		}
+	}
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && searchString(s, substr)
+}
+
+func searchString(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
 func TestTaskList_EmptyForMemberWithNoTeams(t *testing.T) {
 	svc, _, _, _ := setupTaskService()
 
