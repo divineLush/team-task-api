@@ -95,16 +95,13 @@ func (c *TaskCache) Set(ctx context.Context, k ListKey, tasks []model.Task) erro
 	}
 
 	err = c.cb.Execute(func() error {
-		if err := c.rdb.Set(ctx, key, data, ttl).Err(); err != nil {
-			return fmt.Errorf("redis set: %w", err)
-		}
-
-		pipe := c.rdb.Pipeline()
+		pipe := c.rdb.TxPipeline()
+		pipe.Set(ctx, key, data, ttl)
 		for _, teamID := range k.TeamIDs {
 			pipe.SAdd(ctx, teamKeysPrefix+teamID, key)
 		}
 		if _, err := pipe.Exec(ctx); err != nil {
-			return fmt.Errorf("track cache keys: %w", err)
+			return fmt.Errorf("cache set: %w", err)
 		}
 		return nil
 	})
@@ -115,23 +112,22 @@ func (c *TaskCache) Set(ctx context.Context, k ListKey, tasks []model.Task) erro
 	return err
 }
 
+var invalidateScript = redis.NewScript(`
+local setKey = KEYS[1]
+local members = redis.call('smembers', setKey)
+if #members > 0 then
+	redis.call('del', unpack(members))
+end
+redis.call('del', setKey)
+return #members
+`)
+
 func (c *TaskCache) InvalidateTeam(ctx context.Context, teamID string) error {
 	setKey := teamKeysPrefix + teamID
 
 	err := c.cb.Execute(func() error {
-		members, err := c.rdb.SMembers(ctx, setKey).Result()
-		if err != nil {
-			return fmt.Errorf("get team cache keys: %w", err)
-		}
-
-		if len(members) > 0 {
-			if err := c.rdb.Del(ctx, members...).Err(); err != nil {
-				return fmt.Errorf("delete cache keys: %w", err)
-			}
-		}
-
-		if err := c.rdb.Del(ctx, setKey).Err(); err != nil {
-			return fmt.Errorf("delete team key set: %w", err)
+		if _, err := invalidateScript.Run(ctx, c.rdb, []string{setKey}).Result(); err != nil {
+			return fmt.Errorf("invalidate team cache: %w", err)
 		}
 		return nil
 	})

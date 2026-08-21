@@ -329,6 +329,8 @@ func (s *TaskService) GetByID(ctx context.Context, userID, taskID string) (*mode
 }
 
 func (s *TaskService) Delete(ctx context.Context, userID, taskID string) error {
+	var teamID string
+
 	err := s.txm.InTx(ctx, func(tx database.Querier) error {
 		txMemberRepo := s.newMemberRepoInTx(tx)
 		txTaskRepo := s.newTaskRepoInTx(tx)
@@ -349,6 +351,8 @@ func (s *TaskService) Delete(ctx context.Context, userID, taskID string) error {
 			return ErrNotTeamMember
 		}
 
+		teamID = task.TeamID
+
 		if err := txTaskRepo.Delete(ctx, taskID); err != nil {
 			return fmt.Errorf("delete task: %w", err)
 		}
@@ -357,6 +361,12 @@ func (s *TaskService) Delete(ctx context.Context, userID, taskID string) error {
 	})
 	if err != nil {
 		return err
+	}
+
+	if s.taskCache != nil {
+		if err := s.taskCache.InvalidateTeam(ctx, teamID); err != nil {
+			s.logCacheError("cache invalidate error", err)
+		}
 	}
 
 	return nil
