@@ -38,6 +38,10 @@ func (h *TaskHistoryHandler) Routes() chi.Router {
 // @Router       /api/v1/tasks/{id}/history [get]
 func (h *TaskHistoryHandler) List(w http.ResponseWriter, r *http.Request) {
 	taskID := chi.URLParam(r, "id")
+	if taskID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "task id is required"})
+		return
+	}
 
 	userID := middleware.GetUserID(r.Context())
 	if userID == "" {

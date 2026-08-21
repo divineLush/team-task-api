@@ -140,7 +140,15 @@ func (h *TaskCommentHandler) Create(w http.ResponseWriter, r *http.Request) {
 // @Router       /api/v1/tasks/{id}/comments/{commentID} [delete]
 func (h *TaskCommentHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	taskID := chi.URLParam(r, "id")
+	if taskID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "task id is required"})
+		return
+	}
 	commentID := chi.URLParam(r, "commentID")
+	if commentID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "comment id is required"})
+		return
+	}
 
 	userID := middleware.GetUserID(r.Context())
 	if userID == "" {
