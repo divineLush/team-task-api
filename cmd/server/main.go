@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
@@ -32,17 +33,19 @@ import (
 func main() {
 	cfg := config.Load()
 
-	log := logger.New("info")
+	log := logger.New(cfg.LogLevel)
 
 	db, err := database.NewMySQL(cfg.DB)
 	if err != nil {
 		log.Error("mysql connection failed", "error", err)
+		os.Exit(1)
 	}
 	defer db.Close()
 
 	rdb, err := database.NewRedis(cfg.RedisCfg)
 	if err != nil {
 		log.Error("redis connection failed", "error", err)
+		os.Exit(1)
 	}
 
 	txm := database.NewTxManager(db)

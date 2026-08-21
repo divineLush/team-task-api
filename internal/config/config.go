@@ -13,6 +13,7 @@ type Config struct {
 	DB       DBConfig
 	RedisCfg RedisConfig
 	Auth     AuthConfig
+	LogLevel string
 }
 
 type ServerConfig struct {
@@ -65,6 +66,7 @@ func Load() *Config {
 			JWTSecret:      getEnv("JWT_SECRET", "change-me-in-production"),
 			JWTExpiryHours: expiryHours,
 		},
+		LogLevel: getEnv("LOG_LEVEL", "info"),
 	}
 }
 

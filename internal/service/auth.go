@@ -38,9 +38,14 @@ func NewAuthService(txm database.TxManager, userRepo UserRepository, cfg config.
 }
 
 func (s *AuthService) Register(ctx context.Context, req *model.CreateUserRequest) (*model.AuthResponse, error) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, fmt.Errorf("hash password: %w", err)
+	}
+
 	var user *model.User
 
-	err := s.txm.InTx(ctx, func(tx database.Querier) error {
+	err = s.txm.InTx(ctx, func(tx database.Querier) error {
 		txRepo := s.newUserRepoInTx(tx)
 
 		existing, err := txRepo.GetByEmail(ctx, req.Email)
@@ -49,11 +54,6 @@ func (s *AuthService) Register(ctx context.Context, req *model.CreateUserRequest
 		}
 		if existing != nil {
 			return ErrEmailTaken
-		}
-
-		hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-		if err != nil {
-			return fmt.Errorf("hash password: %w", err)
 		}
 
 		user = &model.User{
