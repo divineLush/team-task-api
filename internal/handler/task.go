@@ -65,6 +65,10 @@ func (h *TaskHandler) List(w http.ResponseWriter, r *http.Request) {
 		filter.TeamIDs = []string{teamID}
 	}
 	if status := r.URL.Query().Get("status"); status != "" {
+		if !isValidTaskStatus(status) {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid status: must be pending, in_progress, or done"})
+			return
+		}
 		filter.Status = &status
 	}
 	if assigneeID := r.URL.Query().Get("assignee_id"); assigneeID != "" {
@@ -72,11 +76,19 @@ func (h *TaskHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 	if limit := r.URL.Query().Get("limit"); limit != "" {
 		if v, err := strconv.Atoi(limit); err == nil {
+			if v < 0 {
+				v = 0
+			} else if v > 100 {
+				v = 100
+			}
 			filter.Limit = v
 		}
 	}
 	if offset := r.URL.Query().Get("offset"); offset != "" {
 		if v, err := strconv.Atoi(offset); err == nil {
+			if v < 0 {
+				v = 0
+			}
 			filter.Offset = v
 		}
 	}
@@ -213,6 +225,11 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	if req.Title == nil && req.Description == nil && req.Status == nil && req.AssigneeID == nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "at least one field must be provided"})
+		return
+	}
+
+	if req.Status != nil && !isValidTaskStatus(string(*req.Status)) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid status: must be pending, in_progress, or done"})
 		return
 	}
 

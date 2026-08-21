@@ -171,6 +171,13 @@ func (h *TeamHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	trimmed := strings.TrimSpace(*req.Name)
+	if trimmed == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "team name is required"})
+		return
+	}
+	req.Name = &trimmed
+
 	userID := middleware.GetUserID(r.Context())
 	if userID == "" {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
