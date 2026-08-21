@@ -11,11 +11,10 @@ import (
 )
 
 var (
-	ErrNotMember     = errors.New("user is not a member of this team")
-	ErrForbidden     = errors.New("insufficient permissions")
+	ErrTeamNotFound = errors.New("team not found")
+	ErrForbidden    = errors.New("insufficient permissions")
 	ErrAlreadyMember = errors.New("user is already a member of this team")
-	ErrTeamNotFound  = errors.New("team not found")
-	ErrInvalidRole   = errors.New("owner role cannot be assigned via invite")
+	ErrInvalidRole  = errors.New("owner role cannot be assigned via invite")
 )
 
 type TeamService struct {
@@ -87,7 +86,7 @@ func (s *TeamService) Invite(ctx context.Context, callerID, teamID string, req *
 			return fmt.Errorf("get caller membership: %w", err)
 		}
 		if caller == nil {
-			return ErrNotMember
+			return ErrNotTeamMember
 		}
 		if caller.Role != model.RoleOwner && caller.Role != model.RoleAdmin {
 			return ErrForbidden
@@ -147,7 +146,7 @@ func (s *TeamService) GetByID(ctx context.Context, userID, teamID string) (*mode
 			return fmt.Errorf("check membership: %w", err)
 		}
 		if member == nil {
-			return ErrNotMember
+			return ErrNotTeamMember
 		}
 
 		return nil
@@ -180,7 +179,7 @@ func (s *TeamService) Update(ctx context.Context, userID, teamID string, req *mo
 			return fmt.Errorf("check membership: %w", err)
 		}
 		if caller == nil {
-			return ErrNotMember
+			return ErrNotTeamMember
 		}
 		if caller.Role != model.RoleOwner && caller.Role != model.RoleAdmin {
 			return ErrForbidden
@@ -221,7 +220,7 @@ func (s *TeamService) Delete(ctx context.Context, userID, teamID string) error {
 			return fmt.Errorf("check membership: %w", err)
 		}
 		if caller == nil {
-			return ErrNotMember
+			return ErrNotTeamMember
 		}
 		if caller.Role != model.RoleOwner {
 			return ErrForbidden
@@ -255,7 +254,7 @@ func (s *TeamService) Stats(ctx context.Context, userID, teamID string) (*model.
 			return fmt.Errorf("check membership: %w", err)
 		}
 		if member == nil {
-			return ErrNotMember
+			return ErrNotTeamMember
 		}
 		if member.Role != model.RoleOwner && member.Role != model.RoleAdmin {
 			return ErrForbidden

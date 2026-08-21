@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -99,7 +100,26 @@ func main() {
 	})
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("ok"))
+		w.Header().Set("Content-Type", "application/json")
+
+		mysqlErr := db.PingContext(r.Context())
+		redisErr := rdb.Ping(r.Context()).Err()
+
+		if mysqlErr != nil || redisErr != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			errs := map[string]string{}
+			if mysqlErr != nil {
+				errs["mysql"] = mysqlErr.Error()
+			}
+			if redisErr != nil {
+				errs["redis"] = redisErr.Error()
+			}
+			json.NewEncoder(w).Encode(map[string]any{"status": "unavailable", "errors": errs})
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	})
 
 	r.Get("/swagger/*", httpSwagger.Handler(

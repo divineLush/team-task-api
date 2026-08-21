@@ -80,8 +80,8 @@ func TestTeamGetByID_NonMemberCannotAccess(t *testing.T) {
 	team, _ := svc.Create(context.Background(), "owner", &model.CreateTeamRequest{Name: "Team"})
 
 	_, err := svc.GetByID(context.Background(), "outsider", team.ID)
-	if err != ErrNotMember {
-		t.Fatalf("expected ErrNotMember, got %v", err)
+	if err != ErrNotTeamMember {
+		t.Fatalf("expected ErrNotTeamMember, got %v", err)
 	}
 }
 
@@ -327,8 +327,8 @@ func TestTeamStats_NonMemberCannotView(t *testing.T) {
 	team, _ := svc.Create(context.Background(), "owner", &model.CreateTeamRequest{Name: "Team"})
 
 	_, err := svc.Stats(context.Background(), "outsider", team.ID)
-	if err != ErrNotMember {
-		t.Fatalf("expected ErrNotMember, got %v", err)
+	if err != ErrNotTeamMember {
+		t.Fatalf("expected ErrNotTeamMember, got %v", err)
 	}
 }
 

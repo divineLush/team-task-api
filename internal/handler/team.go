@@ -126,7 +126,7 @@ func (h *TeamHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	team, err := h.teamService.GetByID(r.Context(), userID, teamID)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrNotMember):
+		case errors.Is(err, service.ErrNotTeamMember):
 			writeJSON(w, http.StatusForbidden, map[string]string{"error": err.Error()})
 		case errors.Is(err, service.ErrTeamNotFound):
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
@@ -188,7 +188,7 @@ func (h *TeamHandler) Update(w http.ResponseWriter, r *http.Request) {
 	team, err := h.teamService.Update(r.Context(), userID, teamID, &req)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrNotMember), errors.Is(err, service.ErrForbidden):
+		case errors.Is(err, service.ErrNotTeamMember), errors.Is(err, service.ErrForbidden):
 			writeJSON(w, http.StatusForbidden, map[string]string{"error": err.Error()})
 		case errors.Is(err, service.ErrTeamNotFound):
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
@@ -228,7 +228,7 @@ func (h *TeamHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	err := h.teamService.Delete(r.Context(), userID, teamID)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrNotMember), errors.Is(err, service.ErrForbidden):
+		case errors.Is(err, service.ErrNotTeamMember), errors.Is(err, service.ErrForbidden):
 			writeJSON(w, http.StatusForbidden, map[string]string{"error": err.Error()})
 		case errors.Is(err, service.ErrTeamNotFound):
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
@@ -294,7 +294,7 @@ func (h *TeamHandler) Invite(w http.ResponseWriter, r *http.Request) {
 	err := h.teamService.Invite(r.Context(), userID, teamID, &req)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrNotMember), errors.Is(err, service.ErrForbidden):
+		case errors.Is(err, service.ErrNotTeamMember), errors.Is(err, service.ErrForbidden):
 			writeJSON(w, http.StatusForbidden, map[string]string{"error": err.Error()})
 		case errors.Is(err, service.ErrInvalidRole):
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
@@ -337,7 +337,7 @@ func (h *TeamHandler) Stats(w http.ResponseWriter, r *http.Request) {
 	stats, err := h.teamService.Stats(r.Context(), userID, teamID)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrNotMember), errors.Is(err, service.ErrForbidden):
+		case errors.Is(err, service.ErrNotTeamMember), errors.Is(err, service.ErrForbidden):
 			writeJSON(w, http.StatusForbidden, map[string]string{"error": err.Error()})
 		case errors.Is(err, service.ErrTeamNotFound):
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
