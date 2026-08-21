@@ -51,7 +51,7 @@ func main() {
 
 	txm := database.NewTxManager(db)
 
-	taskCache := cache.NewTaskCache(rdb)
+	taskCache := cache.NewTaskCache(rdb, cfg.Cache)
 
 	userRepo := repository.NewUserRepository(db)
 	teamRepo := repository.NewTeamRepository(db)
@@ -76,7 +76,7 @@ func main() {
 
 	r.Use(chimw.RequestID)
 	r.Use(chimw.RealIP)
-	r.Use(middleware.NewRateLimiter(100, 200).Limit)
+	r.Use(middleware.NewRateLimiter(cfg.RateLimit.RPS, cfg.RateLimit.Burst).Limit)
 	r.Use(middleware.Logger(log))
 	r.Use(chimw.Recoverer)
 	r.Use(chimw.Compress(5))

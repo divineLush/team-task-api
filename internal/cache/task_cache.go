@@ -12,6 +12,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
+	"github.com/team-task-api/internal/config"
 	"github.com/team-task-api/internal/model"
 	"github.com/team-task-api/pkg/circuitbreaker"
 )
@@ -19,18 +20,19 @@ import (
 const (
 	taskListPrefix = "tasks:list:"
 	teamKeysPrefix = "tasks:team:"
-	ttl            = 5 * time.Minute
 )
 
 type TaskCache struct {
 	rdb *redis.Client
 	cb  *circuitbreaker.CircuitBreaker
+	ttl time.Duration
 }
 
-func NewTaskCache(rdb *redis.Client) *TaskCache {
+func NewTaskCache(rdb *redis.Client, cfg config.CacheConfig) *TaskCache {
 	return &TaskCache{
 		rdb: rdb,
-		cb:  circuitbreaker.New(5, 3, 30*time.Second),
+		cb:  circuitbreaker.New(cfg.CBFailures, cfg.CBSuccesses, time.Duration(cfg.CBTimeoutSec)*time.Second),
+		ttl: time.Duration(cfg.TTLMin) * time.Minute,
 	}
 }
 
@@ -96,7 +98,7 @@ func (c *TaskCache) Set(ctx context.Context, k ListKey, tasks []model.Task) erro
 
 	err = c.cb.Execute(func() error {
 		pipe := c.rdb.TxPipeline()
-		pipe.Set(ctx, key, data, ttl)
+		pipe.Set(ctx, key, data, c.ttl)
 		for _, teamID := range k.TeamIDs {
 			pipe.SAdd(ctx, teamKeysPrefix+teamID, key)
 		}
