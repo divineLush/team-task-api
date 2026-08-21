@@ -1,4 +1,28 @@
 services:
+  app:
+    build: .
+    container_name: team-task-app
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: ${SERVER_PORT:-8080}
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: ${DB_USER:-teamtask}
+      DB_PASSWORD: ${DB_PASSWORD:-teamtask}
+      DB_NAME: ${DB_NAME:-teamtask}
+      REDIS_ADDR: redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_DB: ${REDIS_DB:-0}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      JWT_EXPIRY_HOURS: ${JWT_EXPIRY_HOURS:-72}
+    ports:
+      - "${SERVER_PORT:-8080}:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   mysql:
     image: mysql:8.0
     container_name: team-task-mysql

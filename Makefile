@@ -1,4 +1,4 @@
-.PHONY: help up down restart logs build run test swagger migrate-up migrate-down clean
+.PHONY: help setup up down restart logs build run test swagger migrate-up migrate-down clean
 
 DB_CONTAINER := team-task-mysql
 DB_USER := teamtask
@@ -8,22 +8,28 @@ DB_NAME := teamtask
 help: ## show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-up: ## start docker containers
-	docker compose up -d
+setup: ## copy .env.example to .env (skip if exists)
+	@test -f .env || cp .env.example .env && echo ".env created — edit with your values"
 
-down: ## stop docker containers
+up: ## build and start all services (app, mysql, redis)
+	docker compose up --build -d
+
+down: ## stop all containers
 	docker compose down
 
-restart: ## restart docker containers
+restart: ## restart all containers
 	docker compose restart
 
-logs: ## tail docker logs
+logs: ## tail all docker logs
 	docker compose logs -f
 
-build: ## build the server binary
+logs-app: ## tail app container logs
+	docker compose logs -f app
+
+build: ## build the server binary (local)
 	go build -o bin/server ./cmd/server
 
-run: ## run the server
+run: ## run the server locally (requires db + redis on host)
 	go run ./cmd/server
 
 test: ## run all tests
