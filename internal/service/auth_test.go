@@ -2,20 +2,12 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/team-task-api/internal/config"
 	"github.com/team-task-api/internal/model"
 	"github.com/team-task-api/pkg/database"
 )
-
-var uuidCounter int
-
-func uuid() string {
-	uuidCounter++
-	return fmt.Sprintf("00000000-0000-0000-0000-%012d", uuidCounter)
-}
 
 func strPtr(s string) *string { return &s }
 

@@ -20,7 +20,6 @@ var (
 type TeamService struct {
 	txm               database.TxManager
 	teamRepo          TeamRepository
-	teamMemberRepo    TeamMemberRepository
 	newTeamRepoInTx   func(database.Querier) TeamRepository
 	newMemberRepoInTx func(database.Querier) TeamMemberRepository
 }
@@ -29,7 +28,6 @@ func NewTeamService(txm database.TxManager, teamRepo TeamRepository, teamMemberR
 	return &TeamService{
 		txm:               txm,
 		teamRepo:          teamRepo,
-		teamMemberRepo:    teamMemberRepo,
 		newTeamRepoInTx:   newTxTeamRepo,
 		newMemberRepoInTx: newTxTeamMemberRepo,
 	}

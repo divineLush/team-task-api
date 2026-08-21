@@ -239,51 +239,6 @@ func (r *mockTaskHistoryRepo) ListByTask(_ context.Context, taskID string) ([]mo
 	return result, nil
 }
 
-type mockTaskCommentRepo struct {
-	mu       sync.Mutex
-	comments map[string]*model.TaskComment
-}
-
-func newMockTaskCommentRepo() *mockTaskCommentRepo {
-	return &mockTaskCommentRepo{comments: make(map[string]*model.TaskComment)}
-}
-
-func (r *mockTaskCommentRepo) Create(_ context.Context, c *model.TaskComment) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.comments[c.ID] = c
-	return nil
-}
-
-func (r *mockTaskCommentRepo) GetByID(_ context.Context, taskID, commentID string) (*model.TaskComment, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	c, ok := r.comments[commentID]
-	if !ok || c.TaskID != taskID {
-		return nil, nil
-	}
-	return c, nil
-}
-
-func (r *mockTaskCommentRepo) ListByTask(_ context.Context, taskID string) ([]model.TaskComment, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	var result []model.TaskComment
-	for _, c := range r.comments {
-		if c.TaskID == taskID {
-			result = append(result, *c)
-		}
-	}
-	return result, nil
-}
-
-func (r *mockTaskCommentRepo) Delete(_ context.Context, id string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	delete(r.comments, id)
-	return nil
-}
-
 type mockDupKeyError struct{}
 
 func (e *mockDupKeyError) Error() string { return "duplicate key" }

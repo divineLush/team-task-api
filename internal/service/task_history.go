@@ -11,8 +11,6 @@ import (
 
 type TaskHistoryService struct {
 	txm                database.TxManager
-	historyRepo        TaskHistoryRepository
-	taskRepo           TaskRepository
 	newTaskRepoInTx    func(database.Querier) TaskRepository
 	newMemberRepoInTx  func(database.Querier) TeamMemberRepository
 	newHistoryRepoInTx func(database.Querier) TaskHistoryRepository
@@ -21,8 +19,6 @@ type TaskHistoryService struct {
 func NewTaskHistoryService(txm database.TxManager, historyRepo TaskHistoryRepository, taskRepo TaskRepository) *TaskHistoryService {
 	return &TaskHistoryService{
 		txm:                txm,
-		historyRepo:        historyRepo,
-		taskRepo:           taskRepo,
 		newTaskRepoInTx:    newTxTaskRepo,
 		newMemberRepoInTx:  newTxTeamMemberRepo,
 		newHistoryRepoInTx: newTxTaskHistoryRepo,

@@ -10,8 +10,6 @@ import (
 
 type TaskCommentService struct {
 	txm                database.TxManager
-	commentRepo        TaskCommentRepository
-	taskRepo           TaskRepository
 	newTaskRepoInTx    func(database.Querier) TaskRepository
 	newMemberRepoInTx  func(database.Querier) TeamMemberRepository
 	newCommentRepoInTx func(database.Querier) TaskCommentRepository
@@ -20,8 +18,6 @@ type TaskCommentService struct {
 func NewTaskCommentService(txm database.TxManager, commentRepo TaskCommentRepository, taskRepo TaskRepository) *TaskCommentService {
 	return &TaskCommentService{
 		txm:                txm,
-		commentRepo:        commentRepo,
-		taskRepo:           taskRepo,
 		newTaskRepoInTx:    newTxTaskRepo,
 		newMemberRepoInTx:  newTxTeamMemberRepo,
 		newCommentRepoInTx: newTxTaskCommentRepo,

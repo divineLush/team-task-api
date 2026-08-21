@@ -8,15 +8,6 @@ import (
 	"github.com/team-task-api/pkg/database"
 )
 
-func setupTeamService() (*TeamService, *mockTeamRepo, *mockTeamMemberRepo) {
-	txm := &mockTxManager{}
-	teamRepo := newMockTeamRepo()
-	memberRepo := newMockTeamMemberRepo()
-	svc := NewTeamService(txm, teamRepo, memberRepo)
-	overrideTeamFactories(svc, teamRepo, memberRepo)
-	return svc, teamRepo, memberRepo
-}
-
 func overrideTeamFactories(svc *TeamService, tr TeamRepository, mr TeamMemberRepository) {
 	svc.newTeamRepoInTx = func(_ database.Querier) TeamRepository { return tr }
 	svc.newMemberRepoInTx = func(_ database.Querier) TeamMemberRepository { return mr }

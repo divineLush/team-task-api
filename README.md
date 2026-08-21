@@ -122,12 +122,17 @@ curl "http://localhost:8080/api/v1/tasks?status=pending" \
 ## Development
 
 ```bash
+make setup          # create .env from example
+make up             # build and start all services
+make rebuild        # wipe data, rebuild image, and start fresh
+make down           # stop all containers
+make logs           # tail all logs
+make logs-app       # tail app logs only
 make build          # build binary locally
 make run            # run locally (needs db + redis on host)
 make test           # run tests
 make test-race      # run tests with race detector
 make test-cover     # run with coverage
 make swagger        # regenerate swagger docs
-make down           # stop docker containers
 make clean          # remove build artifacts
 ```

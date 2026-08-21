@@ -25,8 +25,6 @@ var (
 
 type TaskService struct {
 	txm                database.TxManager
-	taskRepo           TaskRepository
-	teamMemberRepo     TeamMemberRepository
 	historyService     *TaskHistoryService
 	taskCache          *cache.TaskCache
 	log                *slog.Logger
@@ -42,8 +40,6 @@ func NewTaskService(txm database.TxManager, taskRepo TaskRepository, teamMemberR
 	}
 	return &TaskService{
 		txm:                txm,
-		taskRepo:           taskRepo,
-		teamMemberRepo:     teamMemberRepo,
 		historyService:     historyService,
 		taskCache:          taskCache,
 		log:                log,

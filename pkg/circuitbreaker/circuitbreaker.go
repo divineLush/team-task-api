@@ -91,9 +91,3 @@ func (cb *CircuitBreaker) Execute(fn func() error) error {
 
 	return nil
 }
-
-func (cb *CircuitBreaker) State() State {
-	cb.mu.Lock()
-	defer cb.mu.Unlock()
-	return cb.state
-}

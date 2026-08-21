@@ -1,4 +1,4 @@
-.PHONY: help setup up down restart logs build run test swagger migrate-up migrate-down clean
+.PHONY: help setup up down restart rebuild logs build run test swagger migrate-up migrate-down clean
 
 DB_CONTAINER := team-task-mysql
 DB_USER := teamtask
@@ -16,6 +16,10 @@ up: ## build and start all services (app, mysql, redis)
 
 down: ## stop all containers
 	docker compose down
+
+rebuild: ## wipe data, rebuild image, and start fresh
+	docker compose down -v
+	docker compose up --build -d
 
 restart: ## restart all containers
 	docker compose restart
