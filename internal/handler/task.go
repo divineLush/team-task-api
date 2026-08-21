@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -114,6 +115,13 @@ func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	req.TeamID = strings.TrimSpace(req.TeamID)
+	req.Title = strings.TrimSpace(req.Title)
+	if req.TeamID == "" || req.Title == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "team_id and title are required"})
+		return
+	}
+
 	userID := middleware.GetUserID(r.Context())
 	if userID == "" {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
@@ -192,6 +200,11 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 	var req model.UpdateTaskRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+
+	if req.Title == nil && req.Description == nil && req.Status == nil && req.AssigneeID == nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "at least one field must be provided"})
 		return
 	}
 

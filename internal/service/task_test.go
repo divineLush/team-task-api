@@ -16,7 +16,7 @@ func setupTaskService() (*TaskService, *mockTaskRepo, *mockTeamMemberRepo, *mock
 	taskRepo := newMockTaskRepo()
 	memberRepo := newMockTeamMemberRepo()
 	historyRepo := newMockTaskHistoryRepo()
-	svc := NewTaskService(txm, taskRepo, memberRepo, nil, nil)
+	svc := NewTaskService(txm, taskRepo, memberRepo, nil, nil, nil)
 	svc.newTaskRepoInTx = func(_ database.Querier) TaskRepository { return taskRepo }
 	svc.newMemberRepoInTx = func(_ database.Querier) TeamMemberRepository { return memberRepo }
 	svc.newHistoryRepoInTx = func(_ database.Querier) TaskHistoryRepository { return historyRepo }

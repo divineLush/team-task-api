@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"golang.org/x/sync/singleflight"
 
@@ -28,23 +29,32 @@ type TaskService struct {
 	teamMemberRepo     TeamMemberRepository
 	historyService     *TaskHistoryService
 	taskCache          *cache.TaskCache
+	log                *slog.Logger
 	listFlight         singleflight.Group
 	newTaskRepoInTx    func(database.Querier) TaskRepository
 	newMemberRepoInTx  func(database.Querier) TeamMemberRepository
 	newHistoryRepoInTx func(database.Querier) TaskHistoryRepository
 }
 
-func NewTaskService(txm database.TxManager, taskRepo TaskRepository, teamMemberRepo TeamMemberRepository, historyService *TaskHistoryService, taskCache *cache.TaskCache) *TaskService {
+func NewTaskService(txm database.TxManager, taskRepo TaskRepository, teamMemberRepo TeamMemberRepository, historyService *TaskHistoryService, taskCache *cache.TaskCache, log *slog.Logger) *TaskService {
+	if log == nil {
+		log = slog.Default()
+	}
 	return &TaskService{
 		txm:                txm,
 		taskRepo:           taskRepo,
 		teamMemberRepo:     teamMemberRepo,
 		historyService:     historyService,
 		taskCache:          taskCache,
+		log:                log,
 		newTaskRepoInTx:    newTxTaskRepo,
 		newMemberRepoInTx:  newTxTeamMemberRepo,
 		newHistoryRepoInTx: newTxTaskHistoryRepo,
 	}
+}
+
+func (s *TaskService) logCacheError(msg string, err error) {
+	s.log.Warn(msg, "error", err)
 }
 
 func (s *TaskService) Create(ctx context.Context, userID string, req *model.CreateTaskRequest) (*model.Task, error) {
@@ -83,7 +93,7 @@ func (s *TaskService) Create(ctx context.Context, userID string, req *model.Crea
 
 	if s.taskCache != nil {
 		if err := s.taskCache.InvalidateTeam(ctx, req.TeamID); err != nil {
-			fmt.Printf("cache invalidate error: %v\n", err)
+			s.logCacheError("cache invalidate error", err)
 		}
 	}
 
@@ -153,7 +163,7 @@ func (s *TaskService) List(ctx context.Context, userID string, filter repository
 	if s.taskCache != nil {
 		cached, err := s.taskCache.Get(ctx, cacheKey)
 		if err != nil {
-			fmt.Printf("cache get error: %v\n", err)
+			s.logCacheError("cache get error", err)
 		}
 		if cached != nil {
 			return cached, nil
@@ -162,14 +172,23 @@ func (s *TaskService) List(ctx context.Context, userID string, filter repository
 
 	flightKey := "list:" + cacheKey.String()
 	val, err, _ := s.listFlight.Do(flightKey, func() (any, error) {
-		tasks, err := s.taskRepo.List(ctx, filter)
+		var tasks []model.Task
+		err := s.txm.InTx(ctx, func(tx database.Querier) error {
+			txTaskRepo := s.newTaskRepoInTx(tx)
+			var err error
+			tasks, err = txTaskRepo.List(ctx, filter)
+			if err != nil {
+				return fmt.Errorf("list tasks: %w", err)
+			}
+			return nil
+		})
 		if err != nil {
-			return nil, fmt.Errorf("list tasks: %w", err)
+			return nil, err
 		}
 
 		if s.taskCache != nil && len(tasks) > 0 {
 			if err := s.taskCache.Set(ctx, cacheKey, tasks); err != nil {
-				fmt.Printf("cache set error: %v\n", err)
+				s.logCacheError("cache set error", err)
 			}
 		}
 
@@ -269,7 +288,7 @@ func (s *TaskService) Update(ctx context.Context, userID, taskID string, req *mo
 
 	if s.taskCache != nil {
 		if err := s.taskCache.InvalidateTeam(ctx, task.TeamID); err != nil {
-			fmt.Printf("cache invalidate error: %v\n", err)
+			s.logCacheError("cache invalidate error", err)
 		}
 	}
 

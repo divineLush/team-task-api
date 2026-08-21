@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -86,6 +87,12 @@ func (h *TaskCommentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req model.CreateCommentRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+
+	req.Content = strings.TrimSpace(req.Content)
+	if req.Content == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "comment content is required"})
 		return
 	}
 

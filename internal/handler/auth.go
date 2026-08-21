@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -44,6 +45,14 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	req.Email = strings.TrimSpace(req.Email)
+	req.Name = strings.TrimSpace(req.Name)
+
+	if req.Email == "" || req.Password == "" || req.Name == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "email, password, and name are required"})
+		return
+	}
+
 	resp, err := h.authService.Register(r.Context(), &req)
 	if err != nil {
 		switch {
@@ -73,6 +82,13 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req model.LoginUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+
+	req.Email = strings.TrimSpace(req.Email)
+
+	if req.Email == "" || req.Password == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "email and password are required"})
 		return
 	}
 

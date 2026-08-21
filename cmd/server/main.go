@@ -59,7 +59,7 @@ func main() {
 	authService := service.NewAuthService(txm, userRepo, cfg.Auth)
 	teamService := service.NewTeamService(txm, teamRepo, teamMemberRepo)
 	taskHistoryService := service.NewTaskHistoryService(txm, taskHistoryRepo, taskRepo)
-	taskService := service.NewTaskService(txm, taskRepo, teamMemberRepo, taskHistoryService, taskCache)
+	taskService := service.NewTaskService(txm, taskRepo, teamMemberRepo, taskHistoryService, taskCache, log)
 	taskCommentService := service.NewTaskCommentService(txm, taskCommentRepo, taskRepo)
 
 	authHandler := handler.NewAuthHandler(authService)
@@ -84,6 +84,7 @@ func main() {
 		AllowCredentials: false,
 		MaxAge:           300,
 	}))
+	r.Use(middleware.BodyLimit)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Group(func(r chi.Router) {

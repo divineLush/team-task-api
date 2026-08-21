@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -72,6 +73,12 @@ func (h *TeamHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req model.CreateTeamRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+
+	req.Name = strings.TrimSpace(req.Name)
+	if req.Name == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "team name is required"})
 		return
 	}
 
@@ -230,6 +237,12 @@ func (h *TeamHandler) Invite(w http.ResponseWriter, r *http.Request) {
 	var req model.InviteRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+
+	req.UserID = strings.TrimSpace(req.UserID)
+	if req.UserID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
 		return
 	}
 
