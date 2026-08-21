@@ -43,6 +43,10 @@ func (h *TaskCommentHandler) Routes() chi.Router {
 // @Router       /api/v1/tasks/{id}/comments [get]
 func (h *TaskCommentHandler) List(w http.ResponseWriter, r *http.Request) {
 	taskID := chi.URLParam(r, "id")
+	if taskID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "task id is required"})
+		return
+	}
 
 	userID := middleware.GetUserID(r.Context())
 	if userID == "" {
@@ -83,6 +87,10 @@ func (h *TaskCommentHandler) List(w http.ResponseWriter, r *http.Request) {
 // @Router       /api/v1/tasks/{id}/comments [post]
 func (h *TaskCommentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	taskID := chi.URLParam(r, "id")
+	if taskID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "task id is required"})
+		return
+	}
 
 	var req model.CreateCommentRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

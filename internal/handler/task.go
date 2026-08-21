@@ -156,6 +156,10 @@ func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 // @Router       /api/v1/tasks/{id} [get]
 func (h *TaskHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	taskID := chi.URLParam(r, "id")
+	if taskID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "task id is required"})
+		return
+	}
 
 	userID := middleware.GetUserID(r.Context())
 	if userID == "" {
@@ -196,6 +200,10 @@ func (h *TaskHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 // @Router       /api/v1/tasks/{id} [put]
 func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 	taskID := chi.URLParam(r, "id")
+	if taskID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "task id is required"})
+		return
+	}
 
 	var req model.UpdateTaskRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -245,6 +253,10 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 // @Router       /api/v1/tasks/{id} [delete]
 func (h *TaskHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	taskID := chi.URLParam(r, "id")
+	if taskID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "task id is required"})
+		return
+	}
 
 	userID := middleware.GetUserID(r.Context())
 	if userID == "" {

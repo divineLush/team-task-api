@@ -111,6 +111,10 @@ func (h *TeamHandler) Create(w http.ResponseWriter, r *http.Request) {
 // @Router       /api/v1/teams/{id} [get]
 func (h *TeamHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	teamID := chi.URLParam(r, "id")
+	if teamID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "team id is required"})
+		return
+	}
 
 	userID := middleware.GetUserID(r.Context())
 	if userID == "" {
@@ -151,10 +155,19 @@ func (h *TeamHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 // @Router       /api/v1/teams/{id} [put]
 func (h *TeamHandler) Update(w http.ResponseWriter, r *http.Request) {
 	teamID := chi.URLParam(r, "id")
+	if teamID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "team id is required"})
+		return
+	}
 
 	var req model.UpdateTeamRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+
+	if req.Name == nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "at least one field must be provided"})
 		return
 	}
 
@@ -193,6 +206,10 @@ func (h *TeamHandler) Update(w http.ResponseWriter, r *http.Request) {
 // @Router       /api/v1/teams/{id} [delete]
 func (h *TeamHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	teamID := chi.URLParam(r, "id")
+	if teamID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "team id is required"})
+		return
+	}
 
 	userID := middleware.GetUserID(r.Context())
 	if userID == "" {
@@ -233,6 +250,10 @@ func (h *TeamHandler) Delete(w http.ResponseWriter, r *http.Request) {
 // @Router       /api/v1/teams/{id}/invite [post]
 func (h *TeamHandler) Invite(w http.ResponseWriter, r *http.Request) {
 	teamID := chi.URLParam(r, "id")
+	if teamID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "team id is required"})
+		return
+	}
 
 	var req model.InviteRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -244,6 +265,16 @@ func (h *TeamHandler) Invite(w http.ResponseWriter, r *http.Request) {
 	if req.UserID == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
 		return
+	}
+
+	trimmed := strings.TrimSpace(string(req.Role))
+	if trimmed == "" {
+		req.Role = model.RoleMember
+	} else if model.TeamRole(trimmed) != model.RoleAdmin && model.TeamRole(trimmed) != model.RoleMember {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid role: must be admin or member"})
+		return
+	} else {
+		req.Role = model.TeamRole(trimmed)
 	}
 
 	userID := middleware.GetUserID(r.Context())
